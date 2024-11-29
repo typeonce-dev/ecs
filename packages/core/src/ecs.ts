@@ -35,7 +35,7 @@ export class ECS<T extends EventMap> implements World<T> {
 
     for (let i = 0; i < components.length; i++) {
       const component = components[i]!;
-      this.components.get(entityId)!.set(component.type, component);
+      this.components.get(entityId)!.set(component._tag, component);
     }
   }
 
@@ -45,7 +45,7 @@ export class ECS<T extends EventMap> implements World<T> {
   ): void {
     const entityComponents = this.components.get(entityId);
     if (entityComponents) {
-      entityComponents.delete(componentClass.type);
+      entityComponents.delete(componentClass._tag);
     }
   }
 
@@ -59,7 +59,7 @@ export class ECS<T extends EventMap> implements World<T> {
       const unmatchedComponents: Partial<ComponentInstanceMap<M>> = {};
 
       for (const [key, componentClass] of Object.entries(componentMap)) {
-        const component = entityComponents.get(componentClass.type);
+        const component = entityComponents.get(componentClass._tag);
         if (component) {
           matchedComponents[key as keyof M] = component as InstanceType<
             M[keyof M]
@@ -117,9 +117,9 @@ export class ECS<T extends EventMap> implements World<T> {
   getEntitiesWithComponentRequired<M extends ComponentClassMap>(
     componentMap: M
   ): [
-    { entityId: EntityId } & ComponentInstanceMap<M>,
-    ...({ entityId: EntityId } & ComponentInstanceMap<M>)[]
-  ] {
+      { entityId: EntityId } & ComponentInstanceMap<M>,
+      ...({ entityId: EntityId } & ComponentInstanceMap<M>)[]
+    ] {
     const result = this.getEntitiesWithComponent(componentMap);
 
     if (result.length === 0) {

@@ -1,13 +1,12 @@
 export type EntityId = number;
 
 export interface Component {
-  // TODO: Make this "private" (or at least `_` prefix)
-  readonly type: symbol;
+  readonly _tag: symbol;
 }
 
 export interface ComponentClass<T extends Component> {
-  new (...args: any[]): T;
-  readonly type: symbol;
+  new(...args: any[]): T;
+  readonly _tag: symbol;
 }
 
 export interface System<_T extends EventMap> {
@@ -62,9 +61,9 @@ export interface World<T extends EventMap> {
   getEntitiesWithComponentRequired<M extends ComponentClassMap>(
     componentMap: M
   ): [
-    { entityId: EntityId } & ComponentInstanceMap<M>,
-    ...({ entityId: EntityId } & ComponentInstanceMap<M>)[]
-  ];
+      { entityId: EntityId } & ComponentInstanceMap<M>,
+      ...({ entityId: EntityId } & ComponentInstanceMap<M>)[]
+    ];
   getComponent<M extends ComponentClassMap>(
     entityId: EntityId,
     componentMap: M

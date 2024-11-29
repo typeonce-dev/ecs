@@ -1,0 +1,13 @@
+{
+  "name": "@typeonce/ecs",
+  "version": "0.0.1",
+  "author": "Sandro Maglione <sandro@sandromaglione.com>",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "~5.7.2"
+  }
+}

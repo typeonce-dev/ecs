@@ -2,12 +2,41 @@
   "name": "@typeonce/ecs",
   "version": "0.0.1",
   "author": "Sandro Maglione <sandro@sandromaglione.com>",
-  "main": "index.js",
+  "description": "Entity Component System (ECS) implementation in TypeScript, extensible, working with any renderer, type safe and composable",
   "license": "MIT",
+  "keywords": [
+    "game-development",
+    "ecs",
+    "entity-component-system",
+    "game-dev",
+    "typescript-game",
+    "game-ecs",
+    "typescript-ecs",
+    "ecs-ts",
+    "entity-component-system-typescript"
+  ],
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "exports": {
+    ".": {
+      "require": "./dist/index.js",
+      "import": "./dist/index.mjs",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "dev": "tsup --watch",
+    "build": "pnpm run typecheck && tsup",
+    "publish": "pnpm run build && npm publish --access public"
   },
   "devDependencies": {
+    "tsup": "^8.3.5",
     "typescript": "~5.7.2"
   }
 }

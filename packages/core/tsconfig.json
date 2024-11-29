@@ -5,6 +5,8 @@
     "module": "ESNext",
     "lib": ["ES2020"],
     "skipLibCheck": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
 
     "moduleResolution": "Bundler",
     "allowImportingTsExtensions": true,
@@ -19,6 +21,6 @@
     "noUncheckedSideEffectImports": true,
     "noUncheckedIndexedAccess": true
   },
-  "include": ["**/*.ts"],
+  "include": ["src/**/*.ts"],
   "exclude": ["node_modules"]
 }

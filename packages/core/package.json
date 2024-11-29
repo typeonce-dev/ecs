@@ -33,7 +33,7 @@
     "typecheck": "tsc --noEmit",
     "dev": "tsup --watch",
     "build": "pnpm run typecheck && tsup",
-    "publish": "pnpm run build && npm publish --access public"
+    "up": "pnpm run build && npm publish --access public"
   },
   "devDependencies": {
     "tsup": "^8.3.5",

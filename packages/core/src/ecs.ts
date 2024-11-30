@@ -8,7 +8,7 @@ import type {
   Event,
   EventMap,
   EventType,
-  SystemEvents,
+  SystemEvent,
   SystemUpdate,
   World,
 } from "./types";
@@ -181,35 +181,35 @@ export const registerSystemUpdate =
     return world;
   };
 
-export const registerSystemEvents =
-  <T extends EventMap>(...systems: SystemEvents<T>[]) =>
+export const registerSystemEvent =
+  <T extends EventMap>(...systems: SystemEvent<T>[]) =>
   (world: World<T>): World<T> => {
     world.systemEvents.push(...systems);
     return world;
+  };
+
+const emit =
+  <T extends EventMap>(world: World<T>) =>
+  <E extends EventType<T>>(event: Event<T, E>): void => {
+    world.eventQueue.emit(event);
+  };
+
+const poll =
+  <T extends EventMap>(world: World<T>) =>
+  <E extends EventType<T>>(eventType: E): Event<T, E>[] => {
+    return world.eventQueue.poll(eventType);
   };
 
 export const update =
   (deltaTime: number) =>
   <T extends EventMap>(world: World<T>): void => {
     for (const system of world.systemUpdates) {
-      system(world)(deltaTime);
+      system(world)({ deltaTime, emit: emit(world) });
     }
 
     for (const system of world.systemEvents) {
-      system(world)(deltaTime);
+      system(world)({ deltaTime, poll: poll(world) });
     }
 
     world.eventQueue.clear();
-  };
-
-export const emitEvent =
-  <T extends EventMap, E extends EventType<T>>(event: Event<T, E>) =>
-  (world: World<T>): void => {
-    world.eventQueue.emit(event);
-  };
-
-export const pollEvents =
-  <T extends EventMap, E extends EventType<T>>(eventType: E) =>
-  (world: World<T>): Event<T, E>[] => {
-    return world.eventQueue.poll(eventType);
   };

@@ -6,10 +6,11 @@ import {
   getComponentRequired,
   query,
   queryRequired,
+  registerSystemEvent,
   registerSystemUpdate,
   update,
 } from "../src/ecs";
-import type { SystemUpdate } from "../src/types";
+import type { SystemEvent, SystemUpdate } from "../src/types";
 import { ECS } from "../src/world";
 
 describe("Component", () => {
@@ -169,5 +170,41 @@ describe("Systems", () => {
 
     expect(entity.position.x).toBe(30);
     expect(entity.position.y).toBe(30);
+  });
+
+  it("receives events in system events from system updates", () => {
+    class Position extends Component("Position")<{
+      x: number;
+      y: number;
+    }> {}
+
+    const event = Symbol("event");
+    type EventMap = {
+      [event]: number;
+    };
+
+    const world = new ECS<EventMap>();
+    const entityId = createEntity()(world);
+    const position = new Position({ x: 10, y: 20 });
+
+    addComponent(entityId, position)(world);
+
+    const systemUpdate: SystemUpdate<EventMap> =
+      (_) =>
+      ({ emit }) => {
+        emit({ type: event, data: 10 });
+      };
+
+    const systemEvents: SystemEvent<EventMap> =
+      (_) =>
+      ({ poll }) => {
+        const events = poll(event);
+        expect(events).toHaveLength(1);
+        expect(events[0].data).toBe(10);
+      };
+
+    registerSystemUpdate(systemUpdate)(world);
+    registerSystemEvent(systemEvents)(world);
+    update(0)(world);
   });
 });

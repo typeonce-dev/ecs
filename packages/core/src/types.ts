@@ -25,10 +25,11 @@ export type ComponentInstanceMap<T extends ComponentClassMap> = {
 
 export type SystemUpdate<T extends EventMap = {}> = (
   world: World<T>
-) => (deltaTime: number) => void;
-export type SystemEvents<T extends EventMap = {}> = (
+) => (_: { deltaTime: number; emit: EventEmit<T> }) => void;
+
+export type SystemEvent<T extends EventMap = {}> = (
   world: World<T>
-) => (deltaTime: number) => void;
+) => (_: { deltaTime: number; poll: EventPoll<T> }) => void;
 
 export type EventMap = {
   [K: symbol]: any;
@@ -42,11 +43,19 @@ export interface Event<T extends EventMap, E extends EventType<T>> {
   data: EventData<T, E>;
 }
 
+type EventEmit<T extends EventMap> = <E extends EventType<T>>(
+  event: Event<T, E>
+) => void;
+
+type EventPoll<T extends EventMap> = <E extends EventType<T>>(
+  eventType: E
+) => Event<T, E>[];
+
 export interface World<T extends EventMap> {
   entities: Set<EntityId>;
   components: Map<EntityId, Map<string, ComponentType>>;
   nextEntityId: EntityId;
   systemUpdates: SystemUpdate<T>[];
-  systemEvents: SystemEvents<T>[];
+  systemEvents: SystemEvent<T>[];
   eventQueue: EventQueue<T>;
 }

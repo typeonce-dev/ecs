@@ -3,7 +3,7 @@ import type {
   ComponentType,
   EntityId,
   EventMap,
-  SystemEvents,
+  SystemEvent,
   SystemUpdate,
   World,
 } from "./types";
@@ -13,6 +13,6 @@ export class ECS<T extends EventMap> implements World<T> {
   components: Map<EntityId, Map<string, ComponentType>> = new Map();
   nextEntityId: EntityId = 0;
   systemUpdates: SystemUpdate<T>[] = [];
-  systemEvents: SystemEvents<T>[] = [];
+  systemEvents: SystemEvent<T>[] = [];
   eventQueue: EventQueue<T> = new EventQueue<T>();
 }

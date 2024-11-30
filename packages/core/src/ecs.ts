@@ -39,7 +39,8 @@ export const Component = <Tag extends string>(
 };
 
 export const getComponentRequired =
-  <M extends ComponentClassMap>(entityId: EntityId, componentMap: M) =>
+  <M extends ComponentClassMap>(componentMap: M) =>
+  (entityId: EntityId) =>
   <T extends EventMap>(
     world: World<T>
   ): { entityId: EntityId } & ComponentInstanceMap<M> => {
@@ -76,12 +77,13 @@ export const getComponentRequired =
   };
 
 export const getComponent =
-  <M extends ComponentClassMap>(entityId: EntityId, componentMap: M) =>
+  <M extends ComponentClassMap>(componentMap: M) =>
+  (entityId: EntityId) =>
   <T extends EventMap>(
     world: World<T>
   ): ({ entityId: EntityId } & ComponentInstanceMap<M>) | undefined => {
     try {
-      return getComponentRequired(entityId, componentMap)(world);
+      return getComponentRequired(componentMap)(entityId)(world);
     } catch (error) {
       return undefined;
     }
@@ -95,7 +97,7 @@ export const query =
     const result: Array<{ entityId: EntityId } & ComponentInstanceMap<M>> = [];
 
     for (const entityId of world.entities) {
-      const entity = getComponent(entityId, componentMap)(world);
+      const entity = getComponent(componentMap)(entityId)(world);
       if (entity) {
         result.push(entity);
       }

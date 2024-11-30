@@ -56,10 +56,12 @@ describe("getComponentRequired", () => {
 
     addComponent(entity, position, asVoid)(world);
 
-    const entityWithComponents = getComponentRequired(entity, {
+    const getEntity = getComponentRequired({
       position: Position,
       asVoid: AsVoid,
-    })(world);
+    });
+
+    const entityWithComponents = getEntity(entity)(world);
 
     expect(entityWithComponents).toHaveProperty("entityId", entity);
     expect(entityWithComponents).toHaveProperty("position", position);
@@ -109,6 +111,43 @@ describe("queryRequired", () => {
     expect(entityWithComponents.position.y).toBe(20);
     expect(entityWithComponents.asVoid._tag).toBe("AsVoid");
   });
+
+  it("is possible to defined and reuse the query in multiple systems", () => {
+    class Position extends Component("Position")<{
+      x: number;
+      y: number;
+    }> {}
+
+    const world = new ECS();
+    const entity = createEntity()(world);
+    const position = new Position({ x: 10, y: 20 });
+    addComponent(entity, position)(world);
+
+    const withPosition = queryRequired({
+      position: Position,
+    });
+
+    const update1: SystemUpdate = (world) => (_) => {
+      const entity = withPosition(world)[0];
+      entity.position.x = 30;
+      entity.position.y = 30;
+    };
+
+    const update2: SystemUpdate = (world) => (_) => {
+      const entity = withPosition(world)[0];
+      entity.position.x = 50;
+      entity.position.y = 50;
+    };
+
+    registerSystemUpdate(update1, update2)(world);
+    update(0)(world);
+
+    const entityWithComponents = withPosition(world)[0];
+
+    expect(entityWithComponents.position._tag).toBe("Position");
+    expect(entityWithComponents.position.x).toBe(50);
+    expect(entityWithComponents.position.y).toBe(50);
+  });
 });
 
 describe("query", () => {
@@ -153,9 +192,9 @@ describe("Systems", () => {
     addComponent(entityId, position)(world);
 
     const system: SystemUpdate = (world) => (_) => {
-      const entity = getComponentRequired(entityId, {
+      const entity = getComponentRequired({
         position: Position,
-      })(world);
+      })(entityId)(world);
 
       entity.position.x = 30;
       entity.position.y = 30;
@@ -164,30 +203,21 @@ describe("Systems", () => {
     registerSystemUpdate(system)(world);
     update(0)(world);
 
-    const entity = getComponentRequired(entityId, {
+    const entity = getComponentRequired({
       position: Position,
-    })(world);
+    })(entityId)(world);
 
     expect(entity.position.x).toBe(30);
     expect(entity.position.y).toBe(30);
   });
 
   it("receives events in system events from system updates", () => {
-    class Position extends Component("Position")<{
-      x: number;
-      y: number;
-    }> {}
-
     const event = Symbol("event");
     type EventMap = {
       [event]: number;
     };
 
     const world = new ECS<EventMap>();
-    const entityId = createEntity()(world);
-    const position = new Position({ x: 10, y: 20 });
-
-    addComponent(entityId, position)(world);
 
     const systemUpdate: SystemUpdate<EventMap> =
       (_) =>

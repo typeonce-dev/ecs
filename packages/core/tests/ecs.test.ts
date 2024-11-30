@@ -6,7 +6,10 @@ import {
   getComponentRequired,
   query,
   queryRequired,
+  registerSystemUpdate,
+  update,
 } from "../src/ecs";
+import type { SystemUpdate } from "../src/types";
 import { ECS } from "../src/world";
 
 describe("Component", () => {
@@ -132,5 +135,39 @@ describe("query", () => {
 
     expect(withComponentEmpty).toHaveLength(0);
     expect(withComponentFound).toHaveLength(1);
+  });
+});
+
+describe("Systems", () => {
+  it("execute system update", () => {
+    class Position extends Component("Position")<{
+      x: number;
+      y: number;
+    }> {}
+
+    const world = new ECS();
+    const entityId = createEntity()(world);
+    const position = new Position({ x: 10, y: 20 });
+
+    addComponent(entityId, position)(world);
+
+    const system: SystemUpdate = (world) => (_) => {
+      const entity = getComponentRequired(entityId, {
+        position: Position,
+      })(world);
+
+      entity.position.x = 30;
+      entity.position.y = 30;
+    };
+
+    registerSystemUpdate(system)(world);
+    update(0)(world);
+
+    const entity = getComponentRequired(entityId, {
+      position: Position,
+    })(world);
+
+    expect(entity.position.x).toBe(30);
+    expect(entity.position.y).toBe(30);
   });
 });

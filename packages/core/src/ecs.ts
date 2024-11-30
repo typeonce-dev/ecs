@@ -8,7 +8,8 @@ import type {
   Event,
   EventMap,
   EventType,
-  System,
+  SystemEvents,
+  SystemUpdate,
   World,
 } from "./types";
 
@@ -21,7 +22,7 @@ export const Component = <Tag extends string>(
       : {
           readonly [P in keyof A as P extends "_tag" ? never : P]: A[P];
         }
-  ): { readonly _tag: Tag } & Readonly<A>;
+  ): { readonly _tag: Tag } & A;
   readonly _tag: Tag;
 } => {
   class Base {
@@ -129,7 +130,7 @@ export const queryRequired =
 
 export const addComponent =
   <T extends ComponentType>(entityId: EntityId, ...components: NoInfer<T>[]) =>
-  <T extends EventMap>(world: World<T>): void => {
+  <T extends EventMap>(world: World<T>): World<T> => {
     if (!world.components.has(entityId)) {
       world.components.set(entityId, new Map());
     }
@@ -138,6 +139,8 @@ export const addComponent =
       const component = components[i]!;
       world.components.get(entityId)!.set(component._tag, component);
     }
+
+    return world;
   };
 
 export const removeComponent =
@@ -145,11 +148,13 @@ export const removeComponent =
     entityId: EntityId,
     componentClass: ComponentClass<T>
   ) =>
-  <T extends EventMap>(world: World<T>): void => {
+  <T extends EventMap>(world: World<T>): World<T> => {
     const entityComponents = world.components.get(entityId);
     if (entityComponents) {
       entityComponents.delete(componentClass._tag);
     }
+
+    return world;
   };
 
 export const createEntity =
@@ -169,21 +174,29 @@ export const destroyEntity =
     }
   };
 
-export const registerSystem =
-  <T extends EventMap>(...systems: System<T>[]) =>
-  (world: World<T>): void => {
-    world.systems.push(...systems);
+export const registerSystemUpdate =
+  <T extends EventMap>(...systems: SystemUpdate<T>[]) =>
+  (world: World<T>): World<T> => {
+    world.systemUpdates.push(...systems);
+    return world;
+  };
+
+export const registerSystemEvents =
+  <T extends EventMap>(...systems: SystemEvents<T>[]) =>
+  (world: World<T>): World<T> => {
+    world.systemEvents.push(...systems);
+    return world;
   };
 
 export const update =
   (deltaTime: number) =>
   <T extends EventMap>(world: World<T>): void => {
-    for (const system of world.systems) {
-      system.update?.(deltaTime);
+    for (const system of world.systemUpdates) {
+      system(world)(deltaTime);
     }
 
-    for (const system of world.systems) {
-      system.postUpdate?.(deltaTime);
+    for (const system of world.systemEvents) {
+      system(world)(deltaTime);
     }
 
     world.eventQueue.clear();

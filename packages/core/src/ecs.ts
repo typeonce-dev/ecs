@@ -1,10 +1,10 @@
-import { EventQueue } from "./queue";
 import type {
-  Component,
   ComponentClass,
   ComponentClassMap,
   ComponentInstanceMap,
+  ComponentType,
   EntityId,
+  Equals,
   Event,
   EventMap,
   EventType,
@@ -12,51 +12,40 @@ import type {
   World,
 } from "./types";
 
-export class ECS<T extends EventMap> implements World<T> {
-  private entities: Set<EntityId> = new Set();
-  private components: Map<EntityId, Map<symbol, Component>> = new Map();
-  private nextEntityId: EntityId = 0;
-  private systems: System<T>[] = [];
-  private eventQueue: EventQueue<T> = new EventQueue<T>();
-
-  createEntity(): EntityId {
-    const entityId = this.nextEntityId++;
-    this.entities.add(entityId);
-    return entityId;
-  }
-
-  addComponent<T extends Component>(
-    entityId: EntityId,
-    ...components: NoInfer<T>[]
-  ): void {
-    if (!this.components.has(entityId)) {
-      this.components.set(entityId, new Map());
-    }
-
-    for (let i = 0; i < components.length; i++) {
-      const component = components[i]!;
-      this.components.get(entityId)!.set(component._tag, component);
+export const Component = <Tag extends string>(
+  tag: Tag
+): {
+  new <A extends Record<string, any> = {}>(
+    args: Equals<A, {}> extends true
+      ? void
+      : {
+          readonly [P in keyof A as P extends "_tag" ? never : P]: A[P];
+        }
+  ): { readonly _tag: Tag } & Readonly<A>;
+  readonly _tag: Tag;
+} => {
+  class Base {
+    readonly _tag = tag;
+    constructor(args: any) {
+      if (args) {
+        Object.assign(this, args);
+      }
     }
   }
+  (Base.prototype as any).name = tag;
+  (Base as any)._tag = tag;
+  return Base as any;
+};
 
-  removeComponent<T extends Component>(
-    entityId: EntityId,
-    componentClass: ComponentClass<T>
-  ): void {
-    const entityComponents = this.components.get(entityId);
-    if (entityComponents) {
-      entityComponents.delete(componentClass._tag);
-    }
-  }
-
-  getComponentRequired<M extends ComponentClassMap>(
-    entityId: EntityId,
-    componentMap: M
-  ): { entityId: EntityId } & ComponentInstanceMap<M> {
-    const entityComponents = this.components.get(entityId);
+export const getComponentRequired =
+  <M extends ComponentClassMap>(entityId: EntityId, componentMap: M) =>
+  <T extends EventMap>(
+    world: World<T>
+  ): { entityId: EntityId } & ComponentInstanceMap<M> => {
+    const entityComponents = world.components.get(entityId);
     if (entityComponents) {
       const matchedComponents: Partial<ComponentInstanceMap<M>> = {};
-      const unmatchedComponents: Partial<ComponentInstanceMap<M>> = {};
+      let allMatched = true;
 
       for (const [key, componentClass] of Object.entries(componentMap)) {
         const component = entityComponents.get(componentClass._tag);
@@ -65,62 +54,64 @@ export class ECS<T extends EventMap> implements World<T> {
             M[keyof M]
           >;
         } else {
-          unmatchedComponents[key as keyof M] = component as InstanceType<
-            M[keyof M]
-          >;
+          allMatched = false;
+          break;
         }
       }
 
-      if (Object.keys(unmatchedComponents).length === 0) {
+      if (allMatched) {
         return {
           entityId,
           ...(matchedComponents as ComponentInstanceMap<M>),
         };
       } else {
         throw new Error(
-          `Entity ${entityId} does not have all required components, the following components are missing: ${Object.keys(
-            unmatchedComponents
-          ).join(", ")}`
+          `Entity ${entityId} does not have all required components.`
         );
       }
     }
 
     throw new Error(`Components for entity ${entityId} not found`);
-  }
+  };
 
-  getComponent<M extends ComponentClassMap>(
-    entityId: EntityId,
-    componentMap: M
-  ): ({ entityId: EntityId } & ComponentInstanceMap<M>) | undefined {
+export const getComponent =
+  <M extends ComponentClassMap>(entityId: EntityId, componentMap: M) =>
+  <T extends EventMap>(
+    world: World<T>
+  ): ({ entityId: EntityId } & ComponentInstanceMap<M>) | undefined => {
     try {
-      return this.getComponentRequired(entityId, componentMap);
+      return getComponentRequired(entityId, componentMap)(world);
     } catch (error) {
       return undefined;
     }
-  }
+  };
 
-  getEntitiesWithComponent<M extends ComponentClassMap>(
-    componentMap: M
-  ): ({ entityId: EntityId } & ComponentInstanceMap<M>)[] {
+export const query =
+  <M extends ComponentClassMap>(componentMap: M) =>
+  <T extends EventMap>(
+    world: World<T>
+  ): ({ entityId: EntityId } & ComponentInstanceMap<M>)[] => {
     const result: Array<{ entityId: EntityId } & ComponentInstanceMap<M>> = [];
 
-    for (const entityId of this.entities) {
-      const entity = this.getComponent(entityId, componentMap);
+    for (const entityId of world.entities) {
+      const entity = getComponent(entityId, componentMap)(world);
       if (entity) {
         result.push(entity);
       }
     }
 
     return result;
-  }
+  };
 
-  getEntitiesWithComponentRequired<M extends ComponentClassMap>(
-    componentMap: M
+export const queryRequired =
+  <M extends ComponentClassMap>(componentMap: M) =>
+  <T extends EventMap>(
+    world: World<T>
   ): [
-      { entityId: EntityId } & ComponentInstanceMap<M>,
-      ...({ entityId: EntityId } & ComponentInstanceMap<M>)[]
-    ] {
-    const result = this.getEntitiesWithComponent(componentMap);
+    { entityId: EntityId } & ComponentInstanceMap<M>,
+    ...({ entityId: EntityId } & ComponentInstanceMap<M>)[]
+  ] => {
+    const result = query(componentMap)(world);
 
     if (result.length === 0) {
       throw new Error(
@@ -134,40 +125,78 @@ export class ECS<T extends EventMap> implements World<T> {
       { entityId: EntityId } & ComponentInstanceMap<M>,
       ...({ entityId: EntityId } & ComponentInstanceMap<M>)[]
     ];
-  }
+  };
 
-  registerSystem(...systems: System<T>[]): void {
-    this.systems.push(...systems);
-  }
+export const addComponent =
+  <T extends ComponentType>(entityId: EntityId, ...components: NoInfer<T>[]) =>
+  <T extends EventMap>(world: World<T>): void => {
+    if (!world.components.has(entityId)) {
+      world.components.set(entityId, new Map());
+    }
 
-  update(deltaTime: number): void {
-    for (const system of this.systems) {
+    for (let i = 0; i < components.length; i++) {
+      const component = components[i]!;
+      world.components.get(entityId)!.set(component._tag, component);
+    }
+  };
+
+export const removeComponent =
+  <T extends ComponentType>(
+    entityId: EntityId,
+    componentClass: ComponentClass<T>
+  ) =>
+  <T extends EventMap>(world: World<T>): void => {
+    const entityComponents = world.components.get(entityId);
+    if (entityComponents) {
+      entityComponents.delete(componentClass._tag);
+    }
+  };
+
+export const createEntity =
+  () =>
+  <T extends EventMap>(world: World<T>): EntityId => {
+    const entityId = world.nextEntityId++;
+    world.entities.add(entityId);
+    return entityId;
+  };
+
+export const destroyEntity =
+  (entityId: EntityId) =>
+  <T extends EventMap>(world: World<T>): void => {
+    const wasDeleted = world.entities.delete(entityId);
+    if (wasDeleted) {
+      world.components.delete(entityId);
+    }
+  };
+
+export const registerSystem =
+  <T extends EventMap>(...systems: System<T>[]) =>
+  (world: World<T>): void => {
+    world.systems.push(...systems);
+  };
+
+export const update =
+  (deltaTime: number) =>
+  <T extends EventMap>(world: World<T>): void => {
+    for (const system of world.systems) {
       system.update?.(deltaTime);
     }
 
-    for (const system of this.systems) {
+    for (const system of world.systems) {
       system.postUpdate?.(deltaTime);
     }
 
-    this.clearEvents();
-  }
+    world.eventQueue.clear();
+  };
 
-  emitEvent<E extends EventType<T>>(event: Event<T, E>): void {
-    this.eventQueue.emit(event);
-  }
+export const emitEvent =
+  <T extends EventMap, E extends EventType<T>>(event: Event<T, E>) =>
+  (world: World<T>): void => {
+    world.eventQueue.emit(event);
+  };
 
-  pollEvents<E extends EventType<T>>(eventType: E): Event<T, E>[] {
-    return this.eventQueue.poll(eventType);
-  }
-
-  destroyEntity(entityId: EntityId): void {
-    const wasDeleted = this.entities.delete(entityId);
-    if (wasDeleted) {
-      this.components.delete(entityId);
-    }
-  }
-
-  private clearEvents(): void {
-    this.eventQueue.clear();
-  }
-}
+export const pollEvents =
+  <T extends EventMap, E extends EventType<T>>(eventType: E) =>
+  (world: World<T>): Event<T, E>[] => {
+    return world.eventQueue.poll(eventType);
+  };

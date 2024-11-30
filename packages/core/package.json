@@ -31,12 +31,14 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "test": "vitest",
     "dev": "tsup --watch",
     "build": "pnpm run typecheck && tsup",
     "up": "pnpm run build && npm publish --access public"
   },
   "devDependencies": {
     "tsup": "^8.3.5",
-    "typescript": "~5.7.2"
+    "typescript": "~5.7.2",
+    "vitest": "^2.1.6"
   }
 }

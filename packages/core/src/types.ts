@@ -1,13 +1,27 @@
+import type { EventQueue } from "./queue";
+
+export type Equals<X, Y> = (<T>() => T extends X ? 1 : 2) extends <
+  T
+>() => T extends Y ? 1 : 2
+  ? true
+  : false;
+
 export type EntityId = number;
 
-export interface Component {
-  readonly _tag: symbol;
+export interface ComponentType {
+  readonly _tag: string;
 }
 
-export interface ComponentClass<T extends Component> {
-  new(...args: any[]): T;
-  readonly _tag: symbol;
+export interface ComponentClass<T extends ComponentType> {
+  new (...args: any[]): Readonly<T>;
+  readonly _tag: string;
 }
+
+export type ComponentClassMap = Record<string, ComponentClass<any>>;
+
+export type ComponentInstanceMap<T extends ComponentClassMap> = {
+  [K in keyof T]: InstanceType<T[K]>;
+};
 
 export interface System<_T extends EventMap> {
   update?: (deltaTime: number) => void;
@@ -18,65 +32,18 @@ export type EventMap = {
   [K: symbol]: any;
 };
 
+type EventData<T extends EventMap, E extends EventType<T>> = T[E];
 export type EventType<T extends EventMap> = keyof T & symbol;
-
-export type EventData<T extends EventMap, E extends EventType<T>> = T[E];
 
 export interface Event<T extends EventMap, E extends EventType<T>> {
   type: E;
   data: EventData<T, E>;
 }
 
-export interface UniqueEvent<T extends EventMap, E extends EventType<T>>
-  extends Event<T, E> {
-  _unique: true;
-}
-
-export type ComponentTuple<T extends ComponentClass<Component>[]> = {
-  [K in keyof T]: InstanceType<T[K]>;
-};
-
-export type ComponentClassMap = Record<string, ComponentClass<Component>>;
-
-export type ComponentInstanceMap<T extends ComponentClassMap> = {
-  [K in keyof T]: InstanceType<T[K]>;
-};
-
 export interface World<T extends EventMap> {
-  createEntity(): EntityId;
-  destroyEntity(entityId: EntityId): void;
-
-  addComponent<T extends Component>(
-    entityId: EntityId,
-    ...components: NoInfer<T>[]
-  ): void;
-  removeComponent<T extends Component>(
-    entityId: EntityId,
-    componentClass: ComponentClass<T>
-  ): void;
-
-  getEntitiesWithComponent<M extends ComponentClassMap>(
-    componentMap: M
-  ): ({ entityId: EntityId } & ComponentInstanceMap<M>)[];
-  getEntitiesWithComponentRequired<M extends ComponentClassMap>(
-    componentMap: M
-  ): [
-      { entityId: EntityId } & ComponentInstanceMap<M>,
-      ...({ entityId: EntityId } & ComponentInstanceMap<M>)[]
-    ];
-  getComponent<M extends ComponentClassMap>(
-    entityId: EntityId,
-    componentMap: M
-  ): ({ entityId: EntityId } & ComponentInstanceMap<M>) | undefined;
-  getComponentRequired<M extends ComponentClassMap>(
-    entityId: EntityId,
-    componentMap: M
-  ): { entityId: EntityId } & ComponentInstanceMap<M>;
-
-  registerSystem(...systems: System<T>[]): void;
-
-  update(deltaTime: number): void;
-
-  emitEvent<E extends EventType<T>>(event: Event<T, E>): void;
-  pollEvents<E extends EventType<T>>(eventType: E): Event<T, E>[];
+  entities: Set<EntityId>;
+  components: Map<EntityId, Map<string, ComponentType>>;
+  nextEntityId: EntityId;
+  systems: System<T>[];
+  eventQueue: EventQueue<T>;
 }

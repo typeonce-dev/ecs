@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@typeonce/ecs':
-        specifier: file:../../packages/core
-        version: file:../../packages/core
+        specifier: link:../../packages/core
+        version: link:../../packages/core
     devDependencies:
       typescript:
         specifier: ~5.6.2
@@ -255,9 +255,6 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@typeonce/ecs@file:../../packages/core':
-    resolution: {directory: ../../packages/core, type: directory}
-
   '@types/estree@1.0.6':
     resolution: {integrity: sha512-AYnb1nQyY49te+VRAVgmzfcgjYS91mY5P0TKUDCLEM+gNnA+3T6rWITXRLYCpahpqSQbN5cE+gHpnPyXjHWxcw==}
 
@@ -464,8 +461,6 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.27.4':
     optional: true
-
-  '@typeonce/ecs@file:../../packages/core': {}
 
   '@types/estree@1.0.6': {}
 

@@ -1,91 +1,71 @@
-import type { EntityId, System, World } from "@typeonce/ecs";
+import { getComponentRequired, query, type SystemUpdate } from "@typeonce/ecs";
 
-import { CollidableComponent } from "../components/collidable";
-import { PositionComponent } from "../components/position";
-import { SnakeBodyComponent } from "../components/snake-body";
+import { Collidable, Position, SnakeBody } from "../components";
 import { FoodEatenEvent, type GameEventMap } from "../events";
 
-export class CollisionSystem<T extends GameEventMap> implements System<T> {
-  constructor(private world: World<T>) {}
+/**
+ * https://developer.mozilla.org/en-US/docs/Games/Techniques/2D_collision_detection#circle_collision
+ */
+const checkCollision = (pos1: Position, pos2: Position): boolean => {
+  const dx = pos1.x - pos2.x;
+  const dy = pos1.y - pos2.y;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+  return distance < pos1.size + pos2.size;
+};
 
-  update() {
-    const entities = this.world.getEntitiesWithComponent({
-      position: PositionComponent,
-      collidable: CollidableComponent,
-    });
+export const CollisionSystem: SystemUpdate<GameEventMap> =
+  (world) =>
+  ({ emit }) => {
+    const entities = query({ position: Position, collidable: Collidable })(
+      world
+    );
 
     for (let i = 0; i < entities.length; i++) {
       for (let j = i + 1; j < entities.length; j++) {
-        if (this.checkCollision(entities[i]!.position, entities[j]!.position)) {
-          this.handleCollision(
-            [entities[i]!.entityId, entities[i]!.collidable],
-            [entities[j]!.entityId, entities[j]!.collidable]
-          );
+        const entity1 = entities[i]!;
+        const entity2 = entities[j]!;
+
+        if (checkCollision(entity1.position, entity2.position)) {
+          if (
+            entity1.collidable.entity === "snake" &&
+            entity2.collidable.entity === "food"
+          ) {
+            emit({
+              type: FoodEatenEvent,
+              data: { entityId: entity2.entityId },
+            });
+          } else if (
+            entity1.collidable.entity === "food" &&
+            entity2.collidable.entity === "snake"
+          ) {
+            emit({
+              type: FoodEatenEvent,
+              data: { entityId: entity1.entityId },
+            });
+          } else if (
+            entity1.collidable.entity === "snake" &&
+            entity2.collidable.entity === "tail"
+          ) {
+            const snakeBody = getComponentRequired({
+              snake: SnakeBody,
+            })(entity2.entityId)(world);
+
+            if (snakeBody.snake.parentSegment !== entity1.entityId) {
+              // this.resetGame();
+            }
+          } else if (
+            entity1.collidable.entity === "tail" &&
+            entity2.collidable.entity === "snake"
+          ) {
+            const snakeBody = getComponentRequired({
+              snake: SnakeBody,
+            })(entity1.entityId)(world);
+
+            if (snakeBody.snake.parentSegment !== entity2.entityId) {
+              // this.resetGame();
+            }
+          }
         }
       }
     }
-  }
-
-  /**
-   * https://developer.mozilla.org/en-US/docs/Games/Techniques/2D_collision_detection#circle_collision
-   */
-  private checkCollision(
-    pos1: PositionComponent,
-    pos2: PositionComponent
-  ): boolean {
-    const dx = pos1.x - pos2.x;
-    const dy = pos1.y - pos2.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    return distance < pos1.size + pos2.size;
-  }
-
-  private handleCollision(
-    [entity1, collidable1]: [EntityId, CollidableComponent],
-    [entity2, collidable2]: [EntityId, CollidableComponent]
-  ): void {
-    if (collidable1.entity === "snake" && collidable2.entity === "food") {
-      this.world.emitEvent({
-        type: FoodEatenEvent,
-        data: { entityId: entity2 },
-      });
-    } else if (
-      collidable1.entity === "food" &&
-      collidable2.entity === "snake"
-    ) {
-      this.world.emitEvent({
-        type: FoodEatenEvent,
-        data: { entityId: entity1 },
-      });
-    } else if (
-      collidable1.entity === "snake" &&
-      collidable2.entity === "tail"
-    ) {
-      const snakeBody = this.world.getComponent(entity2, {
-        snake: SnakeBodyComponent,
-      })!;
-      if (snakeBody.snake.parentSegment !== entity1) {
-        this.resetGame();
-      }
-    } else if (
-      collidable1.entity === "tail" &&
-      collidable2.entity === "snake"
-    ) {
-      const snakeBody = this.world.getComponent(entity1, {
-        snake: SnakeBodyComponent,
-      })!;
-      if (snakeBody.snake.parentSegment !== entity2) {
-        this.resetGame();
-      }
-    }
-  }
-
-  private resetGame() {
-    this.world
-      .getEntitiesWithComponent({
-        snake: SnakeBodyComponent,
-      })
-      .forEach((entity) => {
-        this.world.destroyEntity(entity.entityId);
-      });
-  }
-}
+  };

@@ -4,13 +4,14 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "preinstall": "pnpm install ../../packages/core",
     "typecheck": "tsc --noEmit",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@typeonce/ecs": "file:../../packages/core"
+    "@typeonce/ecs": "link:../../packages/core"
   },
   "devDependencies": {
     "typescript": "~5.6.2",

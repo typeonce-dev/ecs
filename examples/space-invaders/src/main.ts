@@ -3,8 +3,12 @@ import Matter from "matter-js";
 import * as PIXI from "pixi.js";
 import { Collider, Player, Position, Sprite, Velocity } from "./components";
 import { PLAYER_HEIGHT, PLAYER_WIDTH } from "./constants";
+import type { GameEventMap } from "./events";
 import { InputManager } from "./input-manager";
 import {
+  EnemyBulletCollisionSystem,
+  EnemyDescentSystem,
+  EnemyDestroySystem,
   MovementSystem,
   PhysicsSystem,
   PlayerInputSystem,
@@ -18,16 +22,25 @@ document.body.appendChild(app.canvas);
 
 const inputManager = new InputManager();
 const engine = Matter.Engine.create();
-const world = ECS.create(
-  ({ registerSystemUpdate, createEntity, addComponent }) => {
+const world = ECS.create<GameEventMap>(
+  ({
+    registerSystemUpdate,
+    registerSystemEvent,
+    createEntity,
+    addComponent,
+  }) => {
     registerSystemUpdate(
       MovementSystem,
       RenderSystem,
       PhysicsSystem(engine),
       PlayerInputSystem(inputManager),
       // TODO: it works even when it's not called (not `SystemUpdate`)
-      ShootingSystem({ app, engine, inputManager })()
+      ShootingSystem({ app, engine, inputManager })(),
+      EnemyDescentSystem(),
+      EnemyBulletCollisionSystem
     );
+
+    registerSystemEvent(EnemyDestroySystem(engine));
 
     const playerId = createEntity();
     const playerSprite = new PIXI.Sprite(PIXI.Texture.WHITE);

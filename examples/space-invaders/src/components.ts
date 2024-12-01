@@ -24,7 +24,13 @@ export class Velocity extends Component("Velocity")<{
 }> {
   static readonly idle = new this({ vx: 0, vy: 0, speed: 6 });
   static readonly shootUp = new this({ vx: 0, vy: -10, speed: 6 });
+
+  static readonly sin = (time: number) => ({ dx: Math.sin(time) * 50, dy: 1 });
 }
+
+export class DescentPattern extends Component("DescentPattern")<{
+  pattern: (time: number) => { dx: number; dy: number };
+}> {}
 
 export class Bullet extends Component("Bullet")<{
   damage: number;
@@ -33,3 +39,7 @@ export class Bullet extends Component("Bullet")<{
 }
 
 export class Player extends Component("Player")<{}> {}
+
+export class Enemy extends Component("Enemy")<{
+  health: number;
+}> {}

@@ -38,12 +38,10 @@ export const Component = <Tag extends string>(
   return Base as any;
 };
 
-export const getComponentRequired =
+const getComponentRequired =
+  <T extends EventMap>(world: World<T>) =>
   <M extends ComponentClassMap>(componentMap: M) =>
-  (entityId: EntityId) =>
-  <T extends EventMap>(
-    world: World<T>
-  ): { entityId: EntityId } & ComponentInstanceMap<M> => {
+  (entityId: EntityId): { entityId: EntityId } & ComponentInstanceMap<M> => {
     const entityComponents = world.components.get(entityId);
     if (entityComponents) {
       const matchedComponents: Partial<ComponentInstanceMap<M>> = {};
@@ -76,16 +74,109 @@ export const getComponentRequired =
     throw new Error(`Components for entity ${entityId} not found`);
   };
 
-export const getComponent =
+const getComponent =
+  <T extends EventMap>(world: World<T>) =>
   <M extends ComponentClassMap>(componentMap: M) =>
-  (entityId: EntityId) =>
-  <T extends EventMap>(
-    world: World<T>
+  (
+    entityId: EntityId
   ): ({ entityId: EntityId } & ComponentInstanceMap<M>) | undefined => {
     try {
-      return getComponentRequired(componentMap)(entityId)(world);
+      return getComponentRequired(world)(componentMap)(entityId);
     } catch (error) {
       return undefined;
+    }
+  };
+
+const addComponent =
+  <T extends EventMap>(world: World<T>) =>
+  <T extends ComponentType>(
+    entityId: EntityId,
+    ...components: NoInfer<T>[]
+  ): void => {
+    if (!world.components.has(entityId)) {
+      world.components.set(entityId, new Map());
+    }
+
+    for (let i = 0; i < components.length; i++) {
+      const component = components[i]!;
+      world.components.get(entityId)!.set(component._tag, component);
+    }
+  };
+
+const removeComponent =
+  <T extends EventMap>(world: World<T>) =>
+  <T extends ComponentType>(
+    entityId: EntityId,
+    componentClass: ComponentClass<T>
+  ): void => {
+    const entityComponents = world.components.get(entityId);
+    if (entityComponents) {
+      entityComponents.delete(componentClass._tag);
+    }
+  };
+
+const createEntity =
+  <T extends EventMap>(world: World<T>) =>
+  (): EntityId => {
+    const entityId = world.nextEntityId++;
+    world.entities.add(entityId);
+    return entityId;
+  };
+
+const destroyEntity =
+  <T extends EventMap>(world: World<T>) =>
+  (entityId: EntityId): void => {
+    const wasDeleted = world.entities.delete(entityId);
+    if (wasDeleted) {
+      world.components.delete(entityId);
+    }
+  };
+
+const emit =
+  <T extends EventMap>(events: Event<T, EventType<T>>[]) =>
+  <E extends EventType<T>>(event: Event<T, E>): void => {
+    events.push(event);
+  };
+
+const poll =
+  <T extends EventMap>(events: Event<T, EventType<T>>[]) =>
+  <E extends EventType<T>>(eventType: E): Event<T, E>[] => {
+    return events.filter(
+      (event): event is Event<T, E> => event.type === eventType
+    );
+  };
+
+export const update =
+  (deltaTime: number) =>
+  <T extends EventMap>(world: World<T>): void => {
+    const events: Event<T, EventType<T>>[] = [];
+
+    for (const system of world.systemUpdates) {
+      system({
+        world,
+        deltaTime,
+        emit: emit(events),
+        getComponentRequired: getComponentRequired(world),
+        getComponent: getComponent(world),
+        addComponent: addComponent(world),
+        removeComponent: removeComponent(world),
+        createEntity: createEntity(world),
+        destroyEntity: destroyEntity(world),
+      });
+    }
+
+    for (const system of world.systemEvents) {
+      system({
+        world,
+        deltaTime,
+        poll: poll(events),
+        getComponentRequired: getComponentRequired(world),
+        getComponent: getComponent(world),
+        addComponent: addComponent(world),
+        removeComponent: removeComponent(world),
+        createEntity: createEntity(world),
+        destroyEntity: destroyEntity(world),
+      });
     }
   };
 
@@ -97,7 +188,7 @@ export const query =
     const result: Array<{ entityId: EntityId } & ComponentInstanceMap<M>> = [];
 
     for (const entityId of world.entities) {
-      const entity = getComponent(componentMap)(entityId)(world);
+      const entity = getComponent(world)(componentMap)(entityId);
       if (entity) {
         result.push(entity);
       }
@@ -130,52 +221,6 @@ export const queryRequired =
     ];
   };
 
-export const addComponent =
-  <T extends ComponentType>(entityId: EntityId, ...components: NoInfer<T>[]) =>
-  <T extends EventMap>(world: World<T>): World<T> => {
-    if (!world.components.has(entityId)) {
-      world.components.set(entityId, new Map());
-    }
-
-    for (let i = 0; i < components.length; i++) {
-      const component = components[i]!;
-      world.components.get(entityId)!.set(component._tag, component);
-    }
-
-    return world;
-  };
-
-export const removeComponent =
-  <T extends ComponentType>(
-    entityId: EntityId,
-    componentClass: ComponentClass<T>
-  ) =>
-  <T extends EventMap>(world: World<T>): World<T> => {
-    const entityComponents = world.components.get(entityId);
-    if (entityComponents) {
-      entityComponents.delete(componentClass._tag);
-    }
-
-    return world;
-  };
-
-export const createEntity =
-  () =>
-  <T extends EventMap>(world: World<T>): EntityId => {
-    const entityId = world.nextEntityId++;
-    world.entities.add(entityId);
-    return entityId;
-  };
-
-export const destroyEntity =
-  (entityId: EntityId) =>
-  <T extends EventMap>(world: World<T>): void => {
-    const wasDeleted = world.entities.delete(entityId);
-    if (wasDeleted) {
-      world.components.delete(entityId);
-    }
-  };
-
 export const registerSystemUpdate =
   <T extends EventMap>(...systems: SystemUpdate<T>[]) =>
   (world: World<T>): World<T> => {
@@ -188,30 +233,4 @@ export const registerSystemEvent =
   (world: World<T>): World<T> => {
     world.systemEvents.push(...systems);
     return world;
-  };
-
-const emit =
-  <T extends EventMap>(world: World<T>) =>
-  <E extends EventType<T>>(event: Event<T, E>): void => {
-    world.eventQueue.emit(event);
-  };
-
-const poll =
-  <T extends EventMap>(world: World<T>) =>
-  <E extends EventType<T>>(eventType: E): Event<T, E>[] => {
-    return world.eventQueue.poll(eventType);
-  };
-
-export const update =
-  (deltaTime: number) =>
-  <T extends EventMap>(world: World<T>): void => {
-    for (const system of world.systemUpdates) {
-      system(world)({ deltaTime, emit: emit(world) });
-    }
-
-    for (const system of world.systemEvents) {
-      system(world)({ deltaTime, poll: poll(world) });
-    }
-
-    world.eventQueue.clear();
   };

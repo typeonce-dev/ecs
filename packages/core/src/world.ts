@@ -1,4 +1,3 @@
-import { EventQueue } from "./queue";
 import type {
   ComponentType,
   EntityId,
@@ -14,5 +13,4 @@ export class ECS<T extends EventMap> implements World<T> {
   nextEntityId: EntityId = 0;
   systemUpdates: SystemUpdate<T>[] = [];
   systemEvents: SystemEvent<T>[] = [];
-  eventQueue: EventQueue<T> = new EventQueue<T>();
 }

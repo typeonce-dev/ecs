@@ -119,7 +119,7 @@ const removeComponent =
 const createEntity =
   <T extends EventMap>(world: World<T>) =>
   (): EntityId => {
-    const entityId = world.nextEntityId++;
+    const entityId = world.nextEntityId++ as EntityId;
     world.entities.add(entityId);
     return entityId;
   };
@@ -254,7 +254,7 @@ export class ECS<T extends EventMap> implements World<T> {
 
   entities: Set<EntityId> = new Set();
   components: Map<EntityId, Map<string, ComponentType>> = new Map();
-  nextEntityId: EntityId = 0;
+  nextEntityId: EntityId = 0 as EntityId;
   systemUpdates: SystemUpdate<T>[] = [];
   systemEvents: SystemEvent<T>[] = [];
 }

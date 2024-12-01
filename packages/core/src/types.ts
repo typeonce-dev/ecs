@@ -4,7 +4,13 @@ export type Equals<X, Y> = (<T>() => T extends X ? 1 : 2) extends <
   ? true
   : false;
 
-export type EntityId = number;
+const EntityIdTypeId: unique symbol = Symbol.for("ecs/EntityId");
+
+export type EntityId = number & {
+  readonly [EntityIdTypeId]: {
+    readonly EntityId: "EntityId"; // unique identifier for ProductId
+  };
+};
 
 export interface ComponentType {
   readonly _tag: string;

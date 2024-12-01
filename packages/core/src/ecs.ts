@@ -8,6 +8,7 @@ import type {
   Event,
   EventMap,
   EventType,
+  InitFunctions,
   SystemEvent,
   SystemUpdate,
   World,
@@ -146,9 +147,21 @@ const poll =
     );
   };
 
+const registerSystemUpdate =
+  <T extends EventMap>(world: World<T>) =>
+  (...systems: SystemUpdate<T>[]): void => {
+    world.systemUpdates.push(...systems);
+  };
+
+const registerSystemEvent =
+  <T extends EventMap>(world: World<T>) =>
+  (...systems: SystemEvent<T>[]): void => {
+    world.systemEvents.push(...systems);
+  };
+
 export const update =
-  (deltaTime: number) =>
-  <T extends EventMap>(world: World<T>): void => {
+  <T extends EventMap>(world: World<T>) =>
+  (deltaTime: number): void => {
     const events: Event<T, EventType<T>>[] = [];
 
     for (const system of world.systemUpdates) {
@@ -162,6 +175,8 @@ export const update =
         removeComponent: removeComponent(world),
         createEntity: createEntity(world),
         destroyEntity: destroyEntity(world),
+        registerSystemEvent: registerSystemEvent(world),
+        registerSystemUpdate: registerSystemUpdate(world),
       });
     }
 
@@ -176,6 +191,8 @@ export const update =
         removeComponent: removeComponent(world),
         createEntity: createEntity(world),
         destroyEntity: destroyEntity(world),
+        registerSystemEvent: registerSystemEvent(world),
+        registerSystemUpdate: registerSystemUpdate(world),
       });
     }
   };
@@ -221,16 +238,23 @@ export const queryRequired =
     ];
   };
 
-export const registerSystemUpdate =
-  <T extends EventMap>(...systems: SystemUpdate<T>[]) =>
-  (world: World<T>): World<T> => {
-    world.systemUpdates.push(...systems);
+export class ECS<T extends EventMap> implements World<T> {
+  static create<T extends EventMap>(
+    init: (_: InitFunctions<T>) => void
+  ): World<T> {
+    const world = new ECS<T>();
+    init({
+      addComponent: addComponent(world),
+      createEntity: createEntity(world),
+      registerSystemEvent: registerSystemEvent(world),
+      registerSystemUpdate: registerSystemUpdate(world),
+    });
     return world;
-  };
+  }
 
-export const registerSystemEvent =
-  <T extends EventMap>(...systems: SystemEvent<T>[]) =>
-  (world: World<T>): World<T> => {
-    world.systemEvents.push(...systems);
-    return world;
-  };
+  entities: Set<EntityId> = new Set();
+  components: Map<EntityId, Map<string, ComponentType>> = new Map();
+  nextEntityId: EntityId = 0;
+  systemUpdates: SystemUpdate<T>[] = [];
+  systemEvents: SystemEvent<T>[] = [];
+}

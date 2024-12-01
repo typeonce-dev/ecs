@@ -1,5 +1,3 @@
-import { destroyEntity } from "@typeonce/ecs";
-
 import type { SystemEvent } from "@typeonce/ecs";
 import { Position } from "../components";
 import { FoodEatenEvent, type GameEventMap } from "../events";
@@ -13,16 +11,18 @@ export const FoodSpawnSystem =
     width: number;
     height: number;
   }): SystemEvent<GameEventMap> =>
-  (world) =>
-  ({ poll }) => {
+  ({ poll, destroyEntity, createEntity, addComponent }) => {
     poll(FoodEatenEvent).forEach((event) => {
-      destroyEntity(event.data.entityId)(world);
-      spawnFood(world)(
-        new Position({
-          x: Math.random() * width,
-          y: Math.random() * height,
-          size: 10, // Issue: repeated!
-        })
+      destroyEntity(event.data.entityId);
+      addComponent(
+        createEntity(),
+        ...spawnFood(
+          new Position({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            size: 10, // Issue: repeated!
+          })
+        )
       );
     });
   };

@@ -1,24 +1,16 @@
-import type { System, World } from "@typeonce/ecs";
+import { query, type SystemUpdate } from "@typeonce/ecs";
 
-import { PositionComponent } from "../components/position";
-import { VelocityComponent } from "../components/velocity";
+import { Position, Velocity } from "../components";
 import type { GameEventMap } from "../events";
 
-export class MovementSystem<T extends GameEventMap> implements System<T> {
-  constructor(private world: World<T>) {}
+const moving = query({ position: Position, velocity: Velocity });
 
-  update(deltaTime: number) {
-    const entities = this.world.getEntitiesWithComponent({
-      position: PositionComponent,
-      velocity: VelocityComponent,
-    });
-
-    for (let entityId = 0; entityId < entities.length; entityId++) {
-      const position = entities[entityId]!.position;
-      const velocity = entities[entityId]!.velocity;
-
-      position.x += velocity.dx * velocity.speed * deltaTime;
-      position.y += velocity.dy * velocity.speed * deltaTime;
-    }
-  }
-}
+export const MovementSystem: SystemUpdate<GameEventMap> = ({
+  world,
+  deltaTime,
+}) => {
+  moving(world).forEach(({ position, velocity }) => {
+    position.x += velocity.dx * velocity.speed * deltaTime;
+    position.y += velocity.dy * velocity.speed * deltaTime;
+  });
+};

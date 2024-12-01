@@ -1,35 +1,25 @@
-import type { System, World } from "@typeonce/ecs";
+import { query, type SystemUpdate } from "@typeonce/ecs";
 
-import { FollowTargetComponent } from "../components/follow-target";
-import { PositionComponent } from "../components/position";
+import { FollowTarget, Position } from "../components";
 import type { GameEventMap } from "../events";
 
-export class TargetSystem<T extends GameEventMap> implements System<T> {
-  constructor(
-    private world: World<T>,
-    private readonly followDelayCycles = 10
-  ) {}
+const follow = query({
+  position: Position,
+  followTarget: FollowTarget,
+});
 
-  private countCycles = 0;
+let countCycles = 0;
+export const TargetSystem =
+  (followDelayCycles?: number): SystemUpdate<GameEventMap> =>
+  ({ world }) => {
+    if (countCycles > (followDelayCycles ?? 10)) {
+      countCycles = 0;
 
-  update() {
-    if (this.countCycles > this.followDelayCycles) {
-      this.countCycles = 0;
-
-      const entities = this.world.getEntitiesWithComponent({
-        position: PositionComponent,
-        followTarget: FollowTargetComponent,
-      });
-
-      for (let entityId = 0; entityId < entities.length; entityId++) {
-        const position = entities[entityId]!.position;
-        const followTarget = entities[entityId]!.followTarget;
-
+      follow(world).forEach(({ position, followTarget }) => {
         followTarget.x = position.x;
         followTarget.y = position.y;
-      }
+      });
     } else {
-      this.countCycles++;
+      countCycles++;
     }
-  }
-}
+  };

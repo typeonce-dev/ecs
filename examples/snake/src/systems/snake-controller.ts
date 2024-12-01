@@ -1,33 +1,29 @@
-import type { System, World } from "@typeonce/ecs";
+import { queryRequired, type SystemUpdate } from "@typeonce/ecs";
 
-import { SnakeHeadComponent } from "../components/snake-head";
-import { VelocityComponent } from "../components/velocity";
+import { SnakeHead, Velocity } from "../components";
 import { type GameEventMap } from "../events";
 import type { InputManager } from "../input-manager";
 
-export class SnakeControllerSystem<T extends GameEventMap>
-  implements System<T>
-{
-  constructor(private world: World<T>, private inputManager: InputManager) {}
+const requiredHead = queryRequired({
+  snake: SnakeHead,
+  velocity: Velocity,
+});
 
-  postUpdate() {
-    const snakeHead = this.world.getEntitiesWithComponentRequired({
-      snake: SnakeHeadComponent,
-      velocity: VelocityComponent,
-    })[0];
-
-    if (this.inputManager.isKeyPressed("ArrowUp")) {
+export const SnakeControllerSystem =
+  (inputManager: InputManager): SystemUpdate<GameEventMap> =>
+  ({ world }) => {
+    const snakeHead = requiredHead(world)[0];
+    if (inputManager.isKeyPressed("ArrowUp")) {
       snakeHead.velocity.dx = 0;
       snakeHead.velocity.dy = -1;
-    } else if (this.inputManager.isKeyPressed("ArrowDown")) {
+    } else if (inputManager.isKeyPressed("ArrowDown")) {
       snakeHead.velocity.dx = 0;
       snakeHead.velocity.dy = 1;
-    } else if (this.inputManager.isKeyPressed("ArrowLeft")) {
+    } else if (inputManager.isKeyPressed("ArrowLeft")) {
       snakeHead.velocity.dx = -1;
       snakeHead.velocity.dy = 0;
-    } else if (this.inputManager.isKeyPressed("ArrowRight")) {
+    } else if (inputManager.isKeyPressed("ArrowRight")) {
       snakeHead.velocity.dx = 1;
       snakeHead.velocity.dy = 0;
     }
-  }
-}
+  };

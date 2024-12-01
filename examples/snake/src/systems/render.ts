@@ -1,28 +1,21 @@
-import { System, World } from "@typeonce/ecs";
+import { query, type SystemUpdate } from "@typeonce/ecs";
 
-import { PositionComponent } from "../components/position";
-import { RenderableComponent } from "../components/renderable";
+import { Position, Renderable } from "../components";
 import { type GameEventMap } from "../events";
 
-export class RenderSystem<T extends GameEventMap> implements System<T> {
-  constructor(private world: World<T>, private ctx: CanvasRenderingContext2D) {}
+const renderPosition = query({
+  renderable: Renderable,
+  position: Position,
+});
 
-  update() {
-    this.ctx.clearRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
-
-    const entities = this.world.getEntitiesWithComponent({
-      renderable: RenderableComponent,
-      position: PositionComponent,
+export const RenderSystem =
+  (ctx: CanvasRenderingContext2D): SystemUpdate<GameEventMap> =>
+  ({ world }) => {
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    renderPosition(world).forEach(({ renderable, position }) => {
+      ctx.fillStyle = renderable.color;
+      ctx.beginPath();
+      ctx.arc(position.x, position.y, position.size, 0, Math.PI * 2);
+      ctx.fill();
     });
-
-    for (let entityId = 0; entityId < entities.length; entityId++) {
-      const renderable = entities[entityId]!.renderable;
-      const position = entities[entityId]!.position;
-
-      this.ctx.fillStyle = renderable.color;
-      this.ctx.beginPath();
-      this.ctx.arc(position.x, position.y, position.size, 0, Math.PI * 2);
-      this.ctx.fill();
-    }
-  }
-}
+  };

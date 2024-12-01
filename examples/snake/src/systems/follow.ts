@@ -1,4 +1,4 @@
-import { getComponentRequired, query, type SystemUpdate } from "@typeonce/ecs";
+import { query, type SystemUpdate } from "@typeonce/ecs";
 
 import { FollowTarget, Position, SnakeBody } from "../components";
 import type { GameEventMap } from "../events";
@@ -32,24 +32,26 @@ const interpolate2DWithDeltaTime = (
   };
 };
 
-export const FollowSystem: SystemUpdate<GameEventMap> =
-  (world) =>
-  ({ deltaTime }) => {
-    query({ position: Position, snakeBody: SnakeBody })(world).forEach(
-      ({ position, snakeBody }) => {
-        const { followTarget } = getComponentRequired({
-          followTarget: FollowTarget,
-        })(snakeBody.parentSegment)(world);
+const snakeBodyPosition = query({ position: Position, snakeBody: SnakeBody });
 
-        const targetPosition = interpolate2DWithDeltaTime(
-          position,
-          followTarget,
-          deltaTime,
-          0.1
-        );
+export const FollowSystem: SystemUpdate<GameEventMap> = ({
+  world,
+  deltaTime,
+  getComponentRequired,
+}) => {
+  snakeBodyPosition(world).forEach(({ position, snakeBody }) => {
+    const { followTarget } = getComponentRequired({
+      followTarget: FollowTarget,
+    })(snakeBody.parentSegment);
 
-        position.x = targetPosition.x;
-        position.y = targetPosition.y;
-      }
+    const targetPosition = interpolate2DWithDeltaTime(
+      position,
+      followTarget,
+      deltaTime,
+      0.1
     );
-  };
+
+    position.x = targetPosition.x;
+    position.y = targetPosition.y;
+  });
+};

@@ -1,51 +1,60 @@
-import type { System, World } from "@typeonce/ecs";
+import { query, queryRequired, type SystemEvent } from "@typeonce/ecs";
 
-import { CollidableComponent } from "../components/collidable";
-import { FollowTargetComponent } from "../components/follow-target";
-import { PositionComponent } from "../components/position";
-import { RenderableComponent } from "../components/renderable";
-import { SnakeBodyComponent } from "../components/snake-body";
-import { SnakeHeadComponent } from "../components/snake-head";
-import { VelocityComponent } from "../components/velocity";
+import {
+  Collidable,
+  FollowTarget,
+  Position,
+  Renderable,
+  SnakeBody,
+  SnakeHead,
+  Velocity,
+} from "../components";
 import { FoodEatenEvent, type GameEventMap } from "../events";
 
-export class SnakeGrowSystem<T extends GameEventMap> implements System<T> {
-  constructor(private world: World<T>) {}
+const requiredHead = queryRequired({
+  snake: SnakeHead,
+  velocity: Velocity,
+  position: Position,
+});
 
-  postUpdate() {
-    this.world.pollEvents(FoodEatenEvent).forEach(() => {
-      const snakeHead = this.world.getEntitiesWithComponentRequired({
-        snake: SnakeHeadComponent,
-        velocity: VelocityComponent,
-        position: PositionComponent,
-      })[0];
+const tail = query({
+  snake: SnakeBody,
+  position: Position,
+});
 
-      if (!snakeHead) return;
+export const SnakeGrowSystem: SystemEvent<GameEventMap> = ({
+  world,
+  poll,
+  addComponent,
+  createEntity,
+}) => {
+  poll(FoodEatenEvent).forEach(() => {
+    const snakeHead = requiredHead(world)[0];
 
-      const snakeTail = this.world
-        .getEntitiesWithComponent({
-          snake: SnakeBodyComponent,
-          position: PositionComponent,
-        })
-        .find((entity) => entity.snake.isTail);
+    const snakeTail = tail(world).find((entity) => entity.snake.isTail);
 
-      if (snakeTail) {
-        snakeTail.snake.isTail = false;
-      }
+    if (snakeTail) {
+      snakeTail.snake.isTail = false;
+    }
 
-      this.world.addComponent(
-        this.world.createEntity(),
-        new SnakeBodyComponent(snakeTail?.entityId ?? snakeHead.entityId, true),
-        new PositionComponent(
+    addComponent(
+      createEntity(),
+      new SnakeBody({
+        parentSegment: snakeTail?.entityId ?? snakeHead.entityId,
+        isTail: true,
+      }),
+      new Position({
+        x:
           (snakeTail ?? snakeHead).position.x -
-            snakeHead.velocity.dx * snakeHead.position.size * 2,
+          snakeHead.velocity.dx * snakeHead.position.size * 2,
+        y:
           (snakeTail ?? snakeHead).position.y -
-            snakeHead.velocity.dy * snakeHead.position.size * 2
-        ),
-        new FollowTargetComponent(0, 0),
-        new CollidableComponent("tail"),
-        new RenderableComponent("#ffa500")
-      );
-    });
-  }
-}
+          snakeHead.velocity.dy * snakeHead.position.size * 2,
+        size: snakeHead.position.size,
+      }),
+      new FollowTarget({ x: 0, y: 0 }),
+      new Collidable({ entity: "tail" }),
+      new Renderable({ color: "#ffa500" })
+    );
+  });
+};

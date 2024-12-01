@@ -69,14 +69,27 @@ type RemoveComponent<T extends EventMap> = (
   componentClass: ComponentClass<T>
 ) => void;
 
-type SystemFunctions<T extends EventMap> = {
+type RegisterSystemEvent<T extends EventMap> = (
+  world: World<T>
+) => (...systems: SystemEvent<T>[]) => void;
+
+type RegisterSystemUpdate<T extends EventMap> = (
+  world: World<T>
+) => (...systems: SystemUpdate<T>[]) => void;
+
+export type InitFunctions<T extends EventMap> = {
+  addComponent: ReturnType<AddComponent<T>>;
+  createEntity: () => EntityId;
+  registerSystemEvent: ReturnType<RegisterSystemEvent<T>>;
+  registerSystemUpdate: ReturnType<RegisterSystemUpdate<T>>;
+};
+
+type SystemFunctions<T extends EventMap> = InitFunctions<T> & {
   world: World<T>;
   deltaTime: number;
   getComponentRequired: ReturnType<GetComponentRequired<T>>;
   getComponent: ReturnType<GetComponent<T>>;
-  addComponent: ReturnType<AddComponent<T>>;
   removeComponent: ReturnType<RemoveComponent<T>>;
-  createEntity: () => EntityId;
   destroyEntity: (entityId: EntityId) => void;
 };
 

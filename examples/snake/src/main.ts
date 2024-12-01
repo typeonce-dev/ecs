@@ -1,10 +1,12 @@
-import { ECS } from "@typeonce/ecs";
-import { CollidableComponent } from "./components/collidable";
-import { FollowTargetComponent } from "./components/follow-target";
-import { PositionComponent } from "./components/position";
-import { RenderableComponent } from "./components/renderable";
-import { SnakeHeadComponent } from "./components/snake-head";
-import { VelocityComponent } from "./components/velocity";
+import { ECS, update } from "@typeonce/ecs";
+import {
+  Collidable,
+  FollowTarget,
+  Position,
+  Renderable,
+  SnakeHead,
+  Velocity,
+} from "./components";
 import type { GameEventMap } from "./events";
 import { InputManager } from "./input-manager";
 import renderer from "./loop";
@@ -18,37 +20,61 @@ import { SnakeGrowSystem } from "./systems/snake-grow";
 import { TargetSystem } from "./systems/target";
 import { spawnFood } from "./utils";
 
-const world = new ECS<GameEventMap>();
-const inputManager = new InputManager();
+const canvas = document.getElementById("canvas");
+if (canvas && canvas instanceof HTMLCanvasElement) {
+  const ctx = canvas.getContext("2d");
 
-const ctx = renderer(
-  () => {},
-  (deltaTime) => {
-    world.update(deltaTime);
+  if (ctx) {
+    const inputManager = new InputManager();
+    const world = ECS.create<GameEventMap>(
+      ({
+        addComponent,
+        createEntity,
+        registerSystemEvent,
+        registerSystemUpdate,
+      }) => {
+        addComponent(
+          createEntity(),
+          new Position({
+            x: ctx.canvas.width / 2,
+            y: ctx.canvas.height / 2,
+            size: 10,
+          }),
+          new SnakeHead(),
+          new Collidable({ entity: "snake" }),
+          new Renderable({ color: "#2B2D42" }),
+          new Velocity({ dx: 0, dy: -1, speed: 0.1 }),
+          new FollowTarget({ x: 0, y: 0 })
+        );
+
+        addComponent(
+          createEntity(),
+          ...spawnFood(new Position({ x: 200, y: 100, size: 10 }))
+        );
+
+        registerSystemUpdate(
+          CollisionSystem,
+          MovementSystem,
+          FollowSystem,
+          TargetSystem(),
+          RenderSystem(ctx),
+          SnakeControllerSystem(inputManager)
+        );
+
+        registerSystemEvent(
+          SnakeGrowSystem,
+          FoodSpawnSystem({
+            width: ctx.canvas.width,
+            height: ctx.canvas.height,
+          })
+        );
+      }
+    );
+
+    renderer(update(world));
+  } else {
+    console.error("Canvas context not found");
   }
-)!;
-
-const addFood = spawnFood(world);
-
-world.addComponent(
-  world.createEntity(),
-  new PositionComponent(ctx.canvas.width / 2, ctx.canvas.height / 2),
-  new SnakeHeadComponent(),
-  new CollidableComponent("snake"),
-  new RenderableComponent("#2B2D42"),
-  new VelocityComponent(0, 1, 0.1),
-  new FollowTargetComponent(0, 0)
-);
-
-addFood(new PositionComponent(200, 100));
-
-world.registerSystem(
-  new CollisionSystem(world),
-  new MovementSystem(world),
-  new SnakeGrowSystem(world),
-  new FollowSystem(world),
-  new TargetSystem(world),
-  new RenderSystem(world, ctx),
-  new FoodSpawnSystem(world, ctx.canvas.width, ctx.canvas.height),
-  new SnakeControllerSystem(world, inputManager)
-);
+} else {
+  console.error("Canvas not found");
+}

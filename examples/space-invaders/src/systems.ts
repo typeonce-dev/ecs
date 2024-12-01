@@ -1,11 +1,13 @@
-import { query, type SystemUpdate } from "@typeonce/ecs";
+import { query, queryRequired, type SystemUpdate } from "@typeonce/ecs";
 import * as Matter from "matter-js";
 
-import { Collider, Position, Sprite, Velocity } from "./components";
+import { Collider, Player, Position, Sprite, Velocity } from "./components";
+import type { InputManager } from "./input-manager";
 
 const moving = query({ position: Position, velocity: Velocity });
 const physics = query({ position: Position, collider: Collider });
 const pixiRender = query({ position: Position, sprite: Sprite });
+const player = queryRequired({ player: Player, velocity: Velocity });
 
 export const MovementSystem: SystemUpdate = ({ world, deltaTime }) => {
   moving(world).forEach(({ position, velocity }) => {
@@ -13,6 +15,19 @@ export const MovementSystem: SystemUpdate = ({ world, deltaTime }) => {
     position.y += velocity.vy * deltaTime;
   });
 };
+
+export const PlayerInputSystem =
+  (inputManager: InputManager): SystemUpdate =>
+  ({ world }) => {
+    const { velocity } = player(world)[0];
+    if (inputManager.isKeyPressed("ArrowLeft")) {
+      velocity.vx = -velocity.speed;
+    } else if (inputManager.isKeyPressed("ArrowRight")) {
+      velocity.vx = velocity.speed;
+    } else {
+      velocity.vx = 0;
+    }
+  };
 
 export const RenderSystem: SystemUpdate = ({ world }) => {
   pixiRender(world).forEach(({ position, sprite }) => {
@@ -26,7 +41,7 @@ export const PhysicsSystem =
   ({ world }) => {
     Matter.Engine.update(engine);
     physics(world).forEach(({ position, collider }) => {
-      position.x = collider.body.position.x;
-      position.y = collider.body.position.y;
+      collider.body.position.x = position.x;
+      collider.body.position.y = position.y;
     });
   };

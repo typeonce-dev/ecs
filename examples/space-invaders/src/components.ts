@@ -18,8 +18,11 @@ export class Sprite extends Component("Sprite")<{
 export class Velocity extends Component("Velocity")<{
   vx: number;
   vy: number;
+  speed: number;
 }> {
-  static readonly init = new this({ vx: 0, vy: 0 });
+  static readonly init = new this({ vx: 0, vy: 0, speed: 6 });
 }
 
 export class Bullet extends Component("Bullet")<{}> {}
+
+export class Player extends Component("Player")<{}> {}

@@ -1,17 +1,29 @@
 import { ECS, update } from "@typeonce/ecs";
 import Matter from "matter-js";
 import * as PIXI from "pixi.js";
-import { Collider, Position, Sprite, Velocity } from "./components";
-import { MovementSystem, PhysicsSystem, RenderSystem } from "./systems";
+import { Collider, Player, Position, Sprite, Velocity } from "./components";
+import { InputManager } from "./input-manager";
+import {
+  MovementSystem,
+  PhysicsSystem,
+  PlayerInputSystem,
+  RenderSystem,
+} from "./systems";
 
 const app = new PIXI.Application();
-await app.init({ width: 800, height: 600 });
+await app.init({ width: 800, height: 600, backgroundColor: 0x222222 });
 document.body.appendChild(app.canvas);
 
+const inputManager = new InputManager();
 const engine = Matter.Engine.create();
 const world = ECS.create(
   ({ registerSystemUpdate, createEntity, addComponent }) => {
-    registerSystemUpdate(MovementSystem, RenderSystem, PhysicsSystem(engine));
+    registerSystemUpdate(
+      MovementSystem,
+      RenderSystem,
+      PhysicsSystem(engine),
+      PlayerInputSystem(inputManager)
+    );
 
     const playerId = createEntity();
     const playerSprite = new PIXI.Sprite(PIXI.Texture.WHITE);
@@ -24,10 +36,14 @@ const world = ECS.create(
     });
     Matter.World.add(engine.world, playerBody);
 
-    addComponent(playerId, new Position({ x: 400, y: 550 }));
-    addComponent(playerId, Velocity.init);
-    addComponent(playerId, new Sprite({ sprite: playerSprite }));
-    addComponent(playerId, new Collider({ body: playerBody }));
+    addComponent(
+      playerId,
+      Velocity.init,
+      new Position({ x: 400, y: 550 }),
+      new Sprite({ sprite: playerSprite }),
+      new Collider({ body: playerBody }),
+      new Player()
+    );
   }
 );
 

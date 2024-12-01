@@ -55,48 +55,56 @@ export const PhysicsSystem =
     });
   };
 
-export const ShootingSystem =
-  ({
-    app,
-    engine,
-    inputManager,
-  }: {
-    inputManager: InputManager;
-    app: PIXI.Application;
-    engine: Matter.Engine;
-  }): SystemUpdate =>
-  ({ world, addComponent, createEntity }) => {
-    const { position } = playerPosition(world)[0];
-    if (inputManager.isKeyPressed("Space")) {
-      const bulletPosition = new Position({
-        x: position.x,
-        y: position.y + 10,
-      });
+export const ShootingSystem = ({
+  app,
+  engine,
+  inputManager,
+}: {
+  inputManager: InputManager;
+  app: PIXI.Application;
+  engine: Matter.Engine;
+}) => {
+  let canShoot = true;
+  let shootCooldown = 300;
+  return (): SystemUpdate =>
+    ({ world, addComponent, createEntity }) => {
+      const { position } = playerPosition(world)[0];
+      if (inputManager.isKeyPressed("Space") && canShoot) {
+        canShoot = false;
+        setTimeout(() => {
+          canShoot = true;
+        }, shootCooldown);
 
-      const bulletSprite = new PIXI.Sprite(PIXI.Texture.WHITE);
-      bulletSprite.width = 5;
-      bulletSprite.height = 10;
-      bulletSprite.tint = 0xf5f5f5;
-      bulletSprite.anchor.set(0.5, 1);
-      bulletSprite.position.set(bulletPosition.x, bulletPosition.y);
-      app.stage.addChild(bulletSprite);
+        const bulletPosition = new Position({
+          x: position.x,
+          y: position.y + 10,
+        });
 
-      const bulletBody = Matter.Bodies.rectangle(
-        bulletPosition.x,
-        bulletPosition.y,
-        5,
-        10,
-        { isSensor: true }
-      );
-      Matter.World.add(engine.world, bulletBody);
+        const bulletSprite = new PIXI.Sprite(PIXI.Texture.WHITE);
+        bulletSprite.width = 5;
+        bulletSprite.height = 10;
+        bulletSprite.tint = 0xf5f5f5;
+        bulletSprite.anchor.set(0.5, 1);
+        bulletSprite.position.set(bulletPosition.x, bulletPosition.y);
+        app.stage.addChild(bulletSprite);
 
-      addComponent(
-        createEntity(),
-        Bullet.default,
-        bulletPosition,
-        Velocity.shootUp,
-        new Sprite({ sprite: bulletSprite }),
-        new Collider({ body: bulletBody })
-      );
-    }
-  };
+        const bulletBody = Matter.Bodies.rectangle(
+          bulletPosition.x,
+          bulletPosition.y,
+          5,
+          10,
+          { isSensor: true }
+        );
+        Matter.World.add(engine.world, bulletBody);
+
+        addComponent(
+          createEntity(),
+          Bullet.default,
+          bulletPosition,
+          Velocity.shootUp,
+          new Sprite({ sprite: bulletSprite }),
+          new Collider({ body: bulletBody })
+        );
+      }
+    };
+};

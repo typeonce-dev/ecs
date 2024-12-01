@@ -25,7 +25,8 @@ const world = ECS.create(
       RenderSystem,
       PhysicsSystem(engine),
       PlayerInputSystem(inputManager),
-      ShootingSystem({ app, engine, inputManager })
+      // TODO: it works even when it's not called (not `SystemUpdate`)
+      ShootingSystem({ app, engine, inputManager })()
     );
 
     const playerId = createEntity();

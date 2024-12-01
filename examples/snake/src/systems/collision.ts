@@ -1,19 +1,28 @@
 import { query, type SystemUpdate } from "@typeonce/ecs";
 
-import { Collidable, Position, SnakeBody } from "../components";
+import { Collidable, Position, Size, SnakeBody } from "../components";
 import { FoodEatenEvent, type GameEventMap } from "../events";
 
 /**
  * https://developer.mozilla.org/en-US/docs/Games/Techniques/2D_collision_detection#circle_collision
  */
-const checkCollision = (pos1: Position, pos2: Position): boolean => {
+const checkCollision = (
+  pos1: Position,
+  pos2: Position,
+  size1: Size,
+  size2: Size
+): boolean => {
   const dx = pos1.x - pos2.x;
   const dy = pos1.y - pos2.y;
   const distance = Math.sqrt(dx * dx + dy * dy);
-  return distance < pos1.size + pos2.size;
+  return distance < size1.size + size2.size;
 };
 
-const collidable = query({ position: Position, collidable: Collidable });
+const collidable = query({
+  position: Position,
+  collidable: Collidable,
+  size: Size,
+});
 
 export const CollisionSystem: SystemUpdate<GameEventMap> = ({
   world,
@@ -27,7 +36,14 @@ export const CollisionSystem: SystemUpdate<GameEventMap> = ({
       const entity1 = entities[i]!;
       const entity2 = entities[j]!;
 
-      if (checkCollision(entity1.position, entity2.position)) {
+      if (
+        checkCollision(
+          entity1.position,
+          entity2.position,
+          entity1.size,
+          entity2.size
+        )
+      ) {
         const getSnakeBody = getComponentRequired({
           snake: SnakeBody,
         });

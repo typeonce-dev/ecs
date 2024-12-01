@@ -20,7 +20,6 @@ export const FoodSpawnSystem =
           new Position({
             x: Math.random() * width,
             y: Math.random() * height,
-            size: 10, // Issue: repeated!
           })
         )
       );

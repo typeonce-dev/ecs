@@ -5,6 +5,7 @@ import {
   FollowTarget,
   Position,
   Renderable,
+  Size,
   SnakeBody,
   SnakeHead,
   Velocity,
@@ -15,6 +16,7 @@ const requiredHead = queryRequired({
   snake: SnakeHead,
   velocity: Velocity,
   position: Position,
+  size: Size,
 });
 
 const tail = query({
@@ -46,12 +48,12 @@ export const SnakeGrowSystem: SystemEvent<GameEventMap> = ({
       new Position({
         x:
           (snakeTail ?? snakeHead).position.x -
-          snakeHead.velocity.dx * snakeHead.position.size * 2,
+          snakeHead.velocity.dx * snakeHead.size.size * 2,
         y:
           (snakeTail ?? snakeHead).position.y -
-          snakeHead.velocity.dy * snakeHead.position.size * 2,
-        size: snakeHead.position.size,
+          snakeHead.velocity.dy * snakeHead.size.size * 2,
       }),
+      new Size({ size: snakeHead.size.size }),
       new FollowTarget({ x: 0, y: 0 }),
       new Collidable({ entity: "tail" }),
       new Renderable({ color: "#ffa500" })

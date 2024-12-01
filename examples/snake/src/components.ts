@@ -16,6 +16,9 @@ export class Food extends Component("Food")<{
 export class Position extends Component("Position")<{
   x: number;
   y: number;
+}> {}
+
+export class Size extends Component("Size")<{
   size: number;
 }> {}
 

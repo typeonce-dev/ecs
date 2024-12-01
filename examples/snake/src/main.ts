@@ -4,6 +4,7 @@ import {
   FollowTarget,
   Position,
   Renderable,
+  Size,
   SnakeHead,
   Velocity,
 } from "./components";
@@ -35,10 +36,10 @@ if (canvas && canvas instanceof HTMLCanvasElement) {
       }) => {
         addComponent(
           createEntity(),
+          new Size({ size: 10 }),
           new Position({
             x: ctx.canvas.width / 2,
             y: ctx.canvas.height / 2,
-            size: 10,
           }),
           new SnakeHead(),
           new Collidable({ entity: "snake" }),
@@ -49,7 +50,7 @@ if (canvas && canvas instanceof HTMLCanvasElement) {
 
         addComponent(
           createEntity(),
-          ...spawnFood(new Position({ x: 200, y: 100, size: 10 }))
+          ...spawnFood(new Position({ x: 200, y: 100 }))
         );
 
         registerSystemUpdate(

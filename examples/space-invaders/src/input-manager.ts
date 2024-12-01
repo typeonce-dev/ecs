@@ -14,9 +14,7 @@ export class InputManager {
     this.keyStates.set(event.code, false);
   }
 
-  public isKeyPressed(
-    keyCode: "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight"
-  ): boolean {
+  public isKeyPressed(keyCode: "ArrowLeft" | "ArrowRight" | "Space"): boolean {
     return this.keyStates.get(keyCode) ?? false;
   }
 }

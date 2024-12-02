@@ -1,0 +1,23 @@
+{
+  "name": "snake",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "preinstall": "pnpm install ../../packages/core",
+    "typecheck": "tsc --noEmit",
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@typeonce/ecs": "link:../../packages/core",
+    "matter-js": "^0.20.0",
+    "pixi.js": "^8.6.2"
+  },
+  "devDependencies": {
+    "@types/matter-js": "^0.19.8",
+    "typescript": "~5.6.2",
+    "vite": "^6.0.1"
+  }
+}

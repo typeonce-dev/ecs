@@ -1,5 +1,5 @@
 import { ECS, update } from "@typeonce/ecs";
-import Matter from "matter-js";
+import Matter, { Render } from "matter-js";
 import * as PIXI from "pixi.js";
 import { Collider, Player, Position, Sprite, Velocity } from "./components";
 import { PLAYER_HEIGHT, PLAYER_WIDTH } from "./constants";
@@ -9,6 +9,7 @@ import {
   EnemyBulletCollisionSystem,
   EnemyDescentSystem,
   EnemyDestroySystem,
+  EnemySpawnSystem,
   MovementSystem,
   PhysicsSystem,
   PlayerInputSystem,
@@ -21,7 +22,22 @@ await app.init({ width: 800, height: 600, backgroundColor: 0x222222 });
 document.body.appendChild(app.canvas);
 
 const inputManager = new InputManager();
-const engine = Matter.Engine.create();
+
+const engine = Matter.Engine.create({
+  gravity: { scale: 0 },
+});
+const render = Render.create({
+  engine,
+  element: document.body,
+  options: {
+    width: 800,
+    height: 600,
+    wireframes: true,
+  },
+});
+
+Render.run(render);
+
 const world = ECS.create<GameEventMap>(
   ({
     registerSystemUpdate,
@@ -36,7 +52,8 @@ const world = ECS.create<GameEventMap>(
       PlayerInputSystem(inputManager),
       // TODO: it works even when it's not called (not `SystemUpdate`)
       ShootingSystem({ app, engine, inputManager })(),
-      EnemyDescentSystem(),
+      EnemyDescentSystem()(),
+      EnemySpawnSystem({ app, engine })(),
       EnemyBulletCollisionSystem
     );
 
@@ -55,7 +72,7 @@ const world = ECS.create<GameEventMap>(
       initialPosition.y,
       PLAYER_WIDTH,
       PLAYER_HEIGHT,
-      { isStatic: true }
+      { isSensor: true }
     );
     Matter.World.add(engine.world, playerBody);
 

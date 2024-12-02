@@ -20,17 +20,15 @@ import {
 import { DestroyEnemy, type GameEventMap } from "./events";
 import type { InputManager } from "./input-manager";
 
+const playerVelocity = queryRequired({ player: Player, velocity: Velocity });
+const playerPosition = queryRequired({ player: Player, position: Position });
+
 const moving = query({ position: Position, velocity: Velocity });
 const physics = query({ position: Position, collider: Collider });
 const pixiRender = query({ position: Position, sprite: Sprite });
-const playerVelocity = queryRequired({ player: Player, velocity: Velocity });
-const playerPosition = queryRequired({ player: Player, position: Position });
-const bullets = queryRequired({ bullet: Bullet, collider: Collider });
-const enemies = queryRequired({ enemy: Enemy, collider: Collider });
-const descent = queryRequired({
-  descentPattern: DescentPattern,
-  position: Position,
-});
+const bullets = query({ bullet: Bullet, collider: Collider });
+const enemies = query({ enemy: Enemy, collider: Collider });
+const descent = query({ descentPattern: DescentPattern, position: Position });
 
 export const MovementSystem: SystemUpdate<GameEventMap> = ({
   world,
@@ -75,6 +73,50 @@ export const EnemyDescentSystem = () => {
     };
 };
 
+export const EnemySpawnSystem = ({
+  app,
+  engine,
+}: {
+  app: PIXI.Application;
+  engine: Matter.Engine;
+}) => {
+  let spawnCooldown = 100;
+  let lastSpawnTime = Number.MAX_VALUE;
+  return (): SystemUpdate<GameEventMap> =>
+    ({ deltaTime, createEntity, addComponent }) => {
+      lastSpawnTime += deltaTime;
+
+      if (lastSpawnTime >= spawnCooldown) {
+        lastSpawnTime = 0;
+
+        const enemySprite = new PIXI.Sprite(PIXI.Texture.WHITE);
+        enemySprite.width = 40;
+        enemySprite.height = 40;
+        enemySprite.tint = 0x00ff00;
+        enemySprite.position.set(Math.random() * 800, 0);
+        app.stage.addChild(enemySprite);
+
+        const enemyBody = Matter.Bodies.rectangle(
+          enemySprite.x,
+          enemySprite.y,
+          40,
+          40,
+          { isSensor: true }
+        );
+        Matter.World.add(engine.world, enemyBody);
+
+        addComponent(
+          createEntity(),
+          new Position({ x: enemySprite.x, y: enemySprite.y }),
+          new Sprite({ sprite: enemySprite }),
+          new Collider({ body: enemyBody }),
+          new Enemy({ health: 3 }),
+          DescentPattern.zigZag
+        );
+      }
+    };
+};
+
 export const EnemyBulletCollisionSystem: SystemUpdate<GameEventMap> = ({
   world,
   emit,
@@ -104,15 +146,15 @@ export const EnemyDestroySystem =
         sprite: Sprite,
       })(bulletId);
 
-      bulletSprite.sprite.sprite.destroy();
-      Matter.World.remove(engine.world, bulletSprite.collider.body);
-      destroyEntity(bulletId);
-
       const enemySprite = getComponentRequired({
         enemy: Enemy,
         collider: Collider,
         sprite: Sprite,
-      })(bulletId);
+      })(enemyId);
+
+      bulletSprite.sprite.sprite.destroy();
+      Matter.World.remove(engine.world, bulletSprite.collider.body);
+      destroyEntity(bulletId);
 
       enemySprite.sprite.sprite.destroy();
       Matter.World.remove(engine.world, enemySprite.collider.body);
@@ -152,7 +194,7 @@ export const ShootingSystem = ({
 
         const bulletPosition = new Position({
           x: position.x,
-          y: position.y + 10,
+          y: position.y - 10,
         });
 
         const bulletSprite = new PIXI.Sprite(PIXI.Texture.WHITE);

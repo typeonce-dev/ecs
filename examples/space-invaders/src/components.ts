@@ -24,13 +24,22 @@ export class Velocity extends Component("Velocity")<{
 }> {
   static readonly idle = new this({ vx: 0, vy: 0, speed: 6 });
   static readonly shootUp = new this({ vx: 0, vy: -10, speed: 6 });
-
-  static readonly sin = (time: number) => ({ dx: Math.sin(time) * 50, dy: 1 });
 }
 
 export class DescentPattern extends Component("DescentPattern")<{
   pattern: (time: number) => { dx: number; dy: number };
-}> {}
+}> {
+  static readonly sin = new this({
+    pattern: (time: number) => ({ dx: Math.sin(time * 0.1) * 1, dy: 1 }),
+  });
+
+  static readonly zigZag = new this({
+    pattern: (time: number) => ({
+      dx: Math.sin(time * 0.05) > 0 ? 2 : -2,
+      dy: 1,
+    }),
+  });
+}
 
 export class Bullet extends Component("Bullet")<{
   damage: number;

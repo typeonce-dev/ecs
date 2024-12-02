@@ -17,6 +17,7 @@ import {
   Sprite,
   Velocity,
 } from "./components";
+import { MAX_WIDTH } from "./constants";
 import { DestroyEnemy, type GameEventMap } from "./events";
 import type { InputManager } from "./input-manager";
 
@@ -67,7 +68,10 @@ export const EnemyDescentSystem = () => {
       elapsedTime += deltaTime;
       descent(world).forEach(({ position, descentPattern }) => {
         const { dx, dy } = descentPattern.pattern(elapsedTime);
-        position.x += dx * deltaTime;
+        position.x = Math.min(
+          MAX_WIDTH - 20,
+          Math.max(20, position.x + dx * deltaTime)
+        );
         position.y += dy * deltaTime;
       });
     };
@@ -93,7 +97,8 @@ export const EnemySpawnSystem = ({
         enemySprite.width = 40;
         enemySprite.height = 40;
         enemySprite.tint = 0x00ff00;
-        enemySprite.position.set(Math.random() * 800, 0);
+        enemySprite.anchor.set(0.5, 0.5); // Sync with engine
+        enemySprite.position.set(Math.random() * (MAX_WIDTH - 100), 0);
         app.stage.addChild(enemySprite);
 
         const enemyBody = Matter.Bodies.rectangle(
@@ -105,13 +110,22 @@ export const EnemySpawnSystem = ({
         );
         Matter.World.add(engine.world, enemyBody);
 
+        const rand = Math.random();
         addComponent(
           createEntity(),
           new Position({ x: enemySprite.x, y: enemySprite.y }),
           new Sprite({ sprite: enemySprite }),
           new Collider({ body: enemyBody }),
           new Enemy({ health: 3 }),
-          DescentPattern.zigZag
+          rand < 0.15
+            ? DescentPattern.zigZag
+            : rand < 0.3
+            ? DescentPattern.sin(Math.random() * 2 + 2, 0.1, 0.5)
+            : rand < 0.45
+            ? DescentPattern.oscillatingArc(Math.random() * 2 + 2, 0.05, 0.25)
+            : rand < 0.6
+            ? DescentPattern.spiral(Math.random() * 2 + 2, 0.05, 0.25)
+            : DescentPattern.fastDown
         );
       }
     };
@@ -201,7 +215,7 @@ export const ShootingSystem = ({
         bulletSprite.width = 5;
         bulletSprite.height = 10;
         bulletSprite.tint = 0xf5f5f5;
-        bulletSprite.anchor.set(0.5, 1);
+        bulletSprite.anchor.set(0.5, 0.5);
         bulletSprite.position.set(bulletPosition.x, bulletPosition.y);
         app.stage.addChild(bulletSprite);
 

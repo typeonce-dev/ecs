@@ -2,7 +2,12 @@ import { ECS, update } from "@typeonce/ecs";
 import Matter, { Render } from "matter-js";
 import * as PIXI from "pixi.js";
 import { Collider, Player, Position, Sprite, Velocity } from "./components";
-import { PLAYER_HEIGHT, PLAYER_WIDTH } from "./constants";
+import {
+  MAX_HEIGHT,
+  MAX_WIDTH,
+  PLAYER_HEIGHT,
+  PLAYER_WIDTH,
+} from "./constants";
 import type { GameEventMap } from "./events";
 import { InputManager } from "./input-manager";
 import {
@@ -18,7 +23,11 @@ import {
 } from "./systems";
 
 const app = new PIXI.Application();
-await app.init({ width: 800, height: 600, backgroundColor: 0x222222 });
+await app.init({
+  width: MAX_WIDTH,
+  height: MAX_HEIGHT,
+  backgroundColor: 0x222222,
+});
 document.body.appendChild(app.canvas);
 
 const inputManager = new InputManager();
@@ -30,8 +39,8 @@ const render = Render.create({
   engine,
   element: document.body,
   options: {
-    width: 800,
-    height: 600,
+    width: MAX_WIDTH,
+    height: MAX_HEIGHT,
     wireframes: true,
   },
 });

@@ -29,9 +29,27 @@ export class Velocity extends Component("Velocity")<{
 export class DescentPattern extends Component("DescentPattern")<{
   pattern: (time: number) => { dx: number; dy: number };
 }> {
-  static readonly sin = new this({
-    pattern: (time: number) => ({ dx: Math.sin(time * 0.1) * 1, dy: 1 }),
-  });
+  static readonly sin = (amplitude: number, frequency: number, speed: number) =>
+    new this({
+      pattern: (time: number) => {
+        const dx = Math.sin(time * frequency) * amplitude;
+        const dy = speed;
+        return { dx, dy };
+      },
+    });
+
+  static readonly oscillatingArc = (
+    amplitude: number,
+    frequency: number,
+    speed: number
+  ) =>
+    new this({
+      pattern: (time) => {
+        const dx = Math.cos(time * frequency) * amplitude;
+        const dy = speed;
+        return { dx, dy };
+      },
+    });
 
   static readonly zigZag = new this({
     pattern: (time: number) => ({
@@ -39,6 +57,24 @@ export class DescentPattern extends Component("DescentPattern")<{
       dy: 1,
     }),
   });
+
+  static readonly fastDown = new this({
+    pattern: (time: number) => ({ dx: 0, dy: 1 + time * 0.001 }),
+  });
+
+  static readonly spiral = (
+    radiusStep: number,
+    angularSpeed: number,
+    speed: number
+  ) =>
+    new this({
+      pattern: (time: number) => {
+        const angle = time * angularSpeed;
+        const dx = Math.cos(angle) * radiusStep;
+        const dy = Math.sin(angle) * radiusStep + speed;
+        return { dx, dy };
+      },
+    });
 }
 
 export class Bullet extends Component("Bullet")<{

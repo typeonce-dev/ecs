@@ -1,3 +1,5 @@
+import type { SystemRegistry } from "./registry";
+
 export type Equals<X, Y> = (<T>() => T extends X ? 1 : 2) extends <
   T
 >() => T extends Y ? 1 : 2
@@ -107,10 +109,16 @@ export type SystemEvent<T extends EventMap = {}> = (
   _: SystemFunctions<T> & { poll: EventPoll<T> }
 ) => void;
 
+export type SystemExecute<T extends EventMap> = InitFunctions<T> &
+  SystemFunctions<T> & { emit: EventEmit<T>; poll: EventPoll<T> };
+
 export interface World<T extends EventMap> {
   entities: Set<EntityId>;
   components: Map<EntityId, Map<string, ComponentType>>;
   nextEntityId: EntityId;
   systemUpdates: SystemUpdate<T>[];
   systemEvents: SystemEvent<T>[];
+  registry: SystemRegistry<T>;
+
+  update(deltaTime: number): void;
 }

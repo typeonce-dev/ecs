@@ -1,3 +1,4 @@
+import { SystemRegistry } from "./registry";
 import type {
   ComponentClass,
   ComponentClassMap,
@@ -252,9 +253,28 @@ export class ECS<T extends EventMap> implements World<T> {
     return world;
   }
 
+  registry: SystemRegistry<T> = new SystemRegistry();
   entities: Set<EntityId> = new Set();
   components: Map<EntityId, Map<string, ComponentType>> = new Map();
   nextEntityId: EntityId = 0 as EntityId;
   systemUpdates: SystemUpdate<T>[] = [];
   systemEvents: SystemEvent<T>[] = [];
+
+  public update(deltaTime: number): void {
+    const events: Event<T, EventType<T>>[] = [];
+    this.registry.execute({
+      world: this,
+      deltaTime,
+      getComponentRequired: getComponentRequired(this),
+      getComponent: getComponent(this),
+      addComponent: addComponent(this),
+      removeComponent: removeComponent(this),
+      createEntity: createEntity(this),
+      destroyEntity: destroyEntity(this),
+      registerSystemEvent: registerSystemEvent(this),
+      registerSystemUpdate: registerSystemUpdate(this),
+      poll: poll(events),
+      emit: emit(events),
+    });
+  }
 }

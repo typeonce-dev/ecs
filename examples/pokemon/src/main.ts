@@ -1,10 +1,16 @@
 import { ECS, update } from "@typeonce/ecs";
 import * as PIXI from "pixi.js";
-import { Movement, Player, Position, Sprite } from "./components";
+import { Collidable, Movement, Player, Position, Sprite } from "./components";
 import { TILE_SIZE } from "./constants";
 import type { GameEventMap } from "./events";
 import { InputManager } from "./input-manager";
-import { InputSystem, MovementSystem, RenderSystem } from "./systems";
+import {
+  CollisionSystem,
+  InputSystem,
+  MovementSystem,
+  PostMovementSystem,
+  RenderSystem,
+} from "./systems";
 
 const app = new PIXI.Application();
 await app.init({
@@ -29,14 +35,21 @@ app.stage.addChild(grid);
 const inputManager = new InputManager();
 
 const world = ECS.create<GameEventMap>(
-  ({ registerSystemUpdate, createEntity, addComponent }) => {
+  ({
+    registerSystemUpdate,
+    registerSystemEvent,
+    createEntity,
+    addComponent,
+  }) => {
     registerSystemUpdate(
       MovementSystem,
       RenderSystem,
+      CollisionSystem({ width: 800, height: 600 }),
       InputSystem(inputManager)
     );
 
-    const playerId = createEntity();
+    registerSystemEvent(PostMovementSystem);
+
     const playerSprite = new PIXI.Sprite(PIXI.Texture.WHITE);
     playerSprite.width = TILE_SIZE;
     playerSprite.height = TILE_SIZE;
@@ -44,7 +57,7 @@ const world = ECS.create<GameEventMap>(
     app.stage.addChild(playerSprite);
 
     addComponent(
-      playerId,
+      createEntity(),
       new Player(),
       new Position({ x: TILE_SIZE * 7 - TILE_SIZE / 2, y: TILE_SIZE * 7 }),
       new Sprite({ sprite: playerSprite }),
@@ -55,6 +68,20 @@ const world = ECS.create<GameEventMap>(
         isMoving: false,
         speed: 3,
       })
+    );
+
+    const wallSprite = new PIXI.Sprite(PIXI.Texture.WHITE);
+    wallSprite.width = TILE_SIZE;
+    wallSprite.height = TILE_SIZE;
+    wallSprite.tint = 0xff0000;
+    wallSprite.anchor.set(0.5, 0);
+    app.stage.addChild(wallSprite);
+
+    addComponent(
+      createEntity(),
+      new Collidable({ isSolid: true }),
+      new Position({ x: TILE_SIZE * 10 - TILE_SIZE / 2, y: TILE_SIZE * 10 }),
+      new Sprite({ sprite: wallSprite })
     );
   }
 );

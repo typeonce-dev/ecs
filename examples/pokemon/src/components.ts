@@ -20,3 +20,7 @@ export class Sprite extends Component("Sprite")<{
 }> {}
 
 export class Player extends Component("Player")<{}> {}
+
+export class Collidable extends Component("Collidable")<{
+  isSolid: boolean;
+}> {}

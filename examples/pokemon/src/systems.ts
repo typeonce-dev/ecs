@@ -1,17 +1,20 @@
-import { query, queryRequired, type SystemUpdate } from "@typeonce/ecs";
-import { Movement, Player, Position, Sprite } from "./components";
+import {
+  query,
+  queryRequired,
+  type SystemEvent,
+  type SystemUpdate,
+} from "@typeonce/ecs";
+import { Collidable, Movement, Player, Position, Sprite } from "./components";
 import { TILE_SIZE } from "./constants";
 import { type GameEventMap } from "./events";
 import type { InputManager } from "./input-manager";
 
 const moving = query({ position: Position, movement: Movement });
 const pixiRender = query({ position: Position, sprite: Sprite });
+const collisions = query({ position: Position, collidable: Collidable });
 const playerQuery = queryRequired({ movement: Movement, player: Player });
 
-export const MovementSystem: SystemUpdate<GameEventMap> = ({
-  world,
-  deltaTime,
-}) => {
+export const MovementSystem: SystemUpdate<GameEventMap> = ({ world }) => {
   moving(world).forEach(({ position, movement }) => {
     if (!movement.isMoving && movement.direction) {
       switch (movement.direction) {
@@ -34,22 +37,24 @@ export const MovementSystem: SystemUpdate<GameEventMap> = ({
       }
       movement.isMoving = true;
     }
+  });
+};
 
-    // If the entity is in the process of moving, calculate its progress towards the target
+export const PostMovementSystem: SystemEvent<GameEventMap> = ({
+  world,
+  deltaTime,
+}) => {
+  moving(world).forEach(({ position, movement }) => {
     if (movement.isMoving) {
-      // Calculate the movement speed in terms of grid units per frame
       const movementStep = movement.speed * deltaTime;
 
-      // Determine the remaining distance to the target cell
       const remainingDistanceX = movement.targetX - position.x;
       const remainingDistanceY = movement.targetY - position.y;
 
-      // Move the entity closer to the target position along each axis
       if (
         Math.abs(remainingDistanceX) > movementStep ||
         Math.abs(remainingDistanceY) > movementStep
       ) {
-        // If still far from the target, move incrementally
         position.x +=
           Math.sign(remainingDistanceX) *
           Math.min(movementStep, Math.abs(remainingDistanceX));
@@ -57,13 +62,11 @@ export const MovementSystem: SystemUpdate<GameEventMap> = ({
           Math.sign(remainingDistanceY) *
           Math.min(movementStep, Math.abs(remainingDistanceY));
       } else {
-        // If close enough to the target, snap to the target cell
         position.x = movement.targetX;
         position.y = movement.targetY;
 
-        // Mark movement as completed
         movement.isMoving = false;
-        movement.direction = null; // Clear the direction as the movement is finished
+        movement.direction = null;
       }
     }
   });
@@ -89,4 +92,34 @@ export const InputSystem =
     } else if (inputManager.isKeyPressed("ArrowRight")) {
       movement.direction = "right";
     }
+  };
+
+export const CollisionSystem =
+  (gridSize: { width: number; height: number }): SystemUpdate<GameEventMap> =>
+  ({ world }) => {
+    const occupiedPositions = new Map<string, boolean>();
+
+    collisions(world).forEach(({ position, collidable }) => {
+      if (collidable.isSolid) {
+        const key = `${position.x},${position.y}`;
+        occupiedPositions.set(key, true);
+      }
+    });
+
+    query({ movement: Movement })(world).forEach(({ movement }) => {
+      const targetX = movement.targetX;
+      const targetY = movement.targetY;
+
+      const isOutOfBounds =
+        targetX < 0 ||
+        targetY < 0 ||
+        targetX >= gridSize.width ||
+        targetY >= gridSize.height;
+
+      const targetKey = `${targetX},${targetY}`;
+      if (isOutOfBounds || occupiedPositions.has(targetKey)) {
+        movement.direction = null; // Stop movement
+        movement.isMoving = false; // Ensure no movement happens
+      }
+    });
   };

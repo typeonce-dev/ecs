@@ -1,44 +1,53 @@
-import type { EventMap, SystemExecute, SystemUpdate } from "./types";
+import type { EventMap, System, SystemExecute } from "./types";
 
-type System<T extends EventMap = {}> = {
-  name: string;
-  execute: SystemUpdate<T>;
-};
+export class SystemRegistry<
+  T extends EventMap = {},
+  Tag extends string = string
+> {
+  private systems: Map<Tag, System<T, Tag>> = new Map();
+  private dependencies: Map<Tag, Set<Tag>> = new Map();
 
-export class SystemRegistry<T extends EventMap = {}> {
-  private systems: Map<string, System<T>> = new Map();
-  private dependencies: Map<string, Set<string>> = new Map();
-
-  registerSystem(system: System<T>, dependsOn: string[] = []) {
-    this.systems.set(system.name, system);
-    this.dependencies.set(system.name, new Set(dependsOn));
+  registerSystem(system: System<T, Tag>, dependsOn: Tag[] = []) {
+    this.systems.set(system._tag, system);
+    this.dependencies.set(system._tag, new Set(dependsOn));
   }
 
-  private topologicalSort(): string[] {
-    const visited = new Set<string>();
-    const result: string[] = [];
+  private resolveExecutionOrder() {
+    const order: Tag[] = [];
+    const visited = new Set<Tag>();
+    const stack = new Set<Tag>();
 
-    const visit = (systemName: string) => {
-      if (visited.has(systemName)) return;
-      visited.add(systemName);
+    const visit = (name: Tag) => {
+      if (stack.has(name)) {
+        throw new Error(`Circular dependency detected: ${name}`);
+      }
 
-      const deps = this.dependencies.get(systemName) || new Set();
-      for (const dep of deps) {
+      if (visited.has(name)) return;
+
+      stack.add(name);
+
+      const system = this.systems.get(name);
+      if (!system) throw new Error(`System not found: ${name}`);
+
+      const dependencies = this.dependencies.get(name) ?? new Set();
+      for (const dep of dependencies) {
         visit(dep);
       }
 
-      result.unshift(systemName);
+      visited.add(name);
+      stack.delete(name);
+      order.push(name);
     };
 
-    for (const systemName of this.systems.keys()) {
-      visit(systemName);
+    for (const name of this.systems.keys()) {
+      visit(name);
     }
 
-    return result;
+    return order;
   }
 
-  execute(params: SystemExecute<T>) {
-    const sortedSystemNames = this.topologicalSort();
+  execute(params: SystemExecute<T, Tag>) {
+    const sortedSystemNames = this.resolveExecutionOrder();
     for (const name of sortedSystemNames) {
       const system = this.systems.get(name);
       if (system) {

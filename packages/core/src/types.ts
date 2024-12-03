@@ -10,7 +10,7 @@ const EntityIdTypeId: unique symbol = Symbol.for("ecs/EntityId");
 
 export type EntityId = number & {
   readonly [EntityIdTypeId]: {
-    readonly EntityId: "EntityId"; // unique identifier for ProductId
+    readonly EntityId: "EntityId";
   };
 };
 
@@ -49,76 +49,79 @@ type EventPoll<T extends EventMap> = <E extends EventType<T>>(
   eventType: E
 ) => Event<T, E>[];
 
-type GetComponentRequired<T extends EventMap> = (
-  world: World<T>
+type GetComponentRequired<T extends EventMap, Tag extends string> = (
+  world: World<T, Tag>
 ) => <M extends ComponentClassMap>(
   componentMap: M
 ) => (entityId: EntityId) => { entityId: EntityId } & ComponentInstanceMap<M>;
 
-type GetComponent<T extends EventMap> = (
-  world: World<T>
+type GetComponent<T extends EventMap, Tag extends string> = (
+  world: World<T, Tag>
 ) => <M extends ComponentClassMap>(
   componentMap: M
 ) => (
   entityId: EntityId
 ) => ({ entityId: EntityId } & ComponentInstanceMap<M>) | undefined;
 
-type AddComponent<T extends EventMap> = (
-  world: World<T>
+type AddComponent<T extends EventMap, Tag extends string> = (
+  world: World<T, Tag>
 ) => <T extends ComponentType>(
   entityId: EntityId,
   ...components: NoInfer<T>[]
 ) => void;
 
-type RemoveComponent<T extends EventMap> = (
-  world: World<T>
+type RemoveComponent<T extends EventMap, Tag extends string> = (
+  world: World<T, Tag>
 ) => <T extends ComponentType>(
   entityId: EntityId,
   componentClass: ComponentClass<T>
 ) => void;
 
-type RegisterSystemEvent<T extends EventMap> = (
-  world: World<T>
-) => (...systems: SystemEvent<T>[]) => void;
+type AddSystem<T extends EventMap, Tag extends string> = (
+  world: World<T, Tag>
+) => (...systems: SystemDefinition<T, Tag>[]) => void;
 
-type RegisterSystemUpdate<T extends EventMap> = (
-  world: World<T>
-) => (...systems: SystemUpdate<T>[]) => void;
-
-export type InitFunctions<T extends EventMap> = {
-  addComponent: ReturnType<AddComponent<T>>;
+export type InitFunctions<T extends EventMap, Tag extends string> = {
+  addComponent: ReturnType<AddComponent<T, Tag>>;
   createEntity: () => EntityId;
-  registerSystemEvent: ReturnType<RegisterSystemEvent<T>>;
-  registerSystemUpdate: ReturnType<RegisterSystemUpdate<T>>;
+  addSystem: ReturnType<AddSystem<T, Tag>>;
 };
 
-type SystemFunctions<T extends EventMap> = InitFunctions<T> & {
+type SystemFunctions<T extends EventMap, Tag extends string> = InitFunctions<
+  T,
+  Tag
+> & {
   world: World<T>;
   deltaTime: number;
-  getComponentRequired: ReturnType<GetComponentRequired<T>>;
-  getComponent: ReturnType<GetComponent<T>>;
-  removeComponent: ReturnType<RemoveComponent<T>>;
+  getComponentRequired: ReturnType<GetComponentRequired<T, Tag>>;
+  getComponent: ReturnType<GetComponent<T, Tag>>;
+  removeComponent: ReturnType<RemoveComponent<T, Tag>>;
   destroyEntity: (entityId: EntityId) => void;
 };
 
-export type SystemUpdate<T extends EventMap = {}> = (
-  _: SystemFunctions<T> & { emit: EventEmit<T> }
-) => void;
+export type SystemExecute<
+  T extends EventMap,
+  Tag extends string
+> = InitFunctions<T, Tag> &
+  SystemFunctions<T, Tag> & { emit: EventEmit<T>; poll: EventPoll<T> };
 
-export type SystemEvent<T extends EventMap = {}> = (
-  _: SystemFunctions<T> & { poll: EventPoll<T> }
-) => void;
+export type System<T extends EventMap = {}, Tag extends string = string> = {
+  _tag: Tag;
+  execute: (_: SystemExecute<T, Tag>) => void;
+};
 
-export type SystemExecute<T extends EventMap> = InitFunctions<T> &
-  SystemFunctions<T> & { emit: EventEmit<T>; poll: EventPoll<T> };
+export type SystemDefinition<
+  T extends EventMap = {},
+  Tag extends string = string
+> = System<T, Tag> & {
+  dependencies?: Tag[];
+};
 
-export interface World<T extends EventMap> {
+export interface World<E extends EventMap, Tag extends string = string> {
   entities: Set<EntityId>;
   components: Map<EntityId, Map<string, ComponentType>>;
   nextEntityId: EntityId;
-  systemUpdates: SystemUpdate<T>[];
-  systemEvents: SystemEvent<T>[];
-  registry: SystemRegistry<T>;
+  registry: SystemRegistry<E, Tag>;
 
   update(deltaTime: number): void;
 }

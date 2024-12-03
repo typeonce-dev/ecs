@@ -10,8 +10,7 @@ import type {
   EventMap,
   EventType,
   InitFunctions,
-  SystemEvent,
-  SystemUpdate,
+  SystemDefinition,
   World,
 } from "./types";
 
@@ -41,7 +40,7 @@ export const Component = <Tag extends string>(
 };
 
 const getComponentRequired =
-  <T extends EventMap>(world: World<T>) =>
+  <T extends EventMap, Tag extends string>(world: World<T, Tag>) =>
   <M extends ComponentClassMap>(componentMap: M) =>
   (entityId: EntityId): { entityId: EntityId } & ComponentInstanceMap<M> => {
     const entityComponents = world.components.get(entityId);
@@ -77,7 +76,7 @@ const getComponentRequired =
   };
 
 const getComponent =
-  <T extends EventMap>(world: World<T>) =>
+  <T extends EventMap, Tag extends string>(world: World<T, Tag>) =>
   <M extends ComponentClassMap>(componentMap: M) =>
   (
     entityId: EntityId
@@ -90,7 +89,7 @@ const getComponent =
   };
 
 const addComponent =
-  <T extends EventMap>(world: World<T>) =>
+  <T extends EventMap, Tag extends string>(world: World<T, Tag>) =>
   <T extends ComponentType>(
     entityId: EntityId,
     ...components: NoInfer<T>[]
@@ -106,7 +105,7 @@ const addComponent =
   };
 
 const removeComponent =
-  <T extends EventMap>(world: World<T>) =>
+  <T extends EventMap, Tag extends string>(world: World<T, Tag>) =>
   <T extends ComponentType>(
     entityId: EntityId,
     componentClass: ComponentClass<T>
@@ -118,7 +117,7 @@ const removeComponent =
   };
 
 const createEntity =
-  <T extends EventMap>(world: World<T>) =>
+  <T extends EventMap, Tag extends string>(world: World<T, Tag>) =>
   (): EntityId => {
     const entityId = world.nextEntityId++ as EntityId;
     world.entities.add(entityId);
@@ -126,7 +125,7 @@ const createEntity =
   };
 
 const destroyEntity =
-  <T extends EventMap>(world: World<T>) =>
+  <T extends EventMap, Tag extends string>(world: World<T, Tag>) =>
   (entityId: EntityId): void => {
     const wasDeleted = world.entities.delete(entityId);
     if (wasDeleted) {
@@ -148,60 +147,18 @@ const poll =
     );
   };
 
-const registerSystemUpdate =
-  <T extends EventMap>(world: World<T>) =>
-  (...systems: SystemUpdate<T>[]): void => {
-    world.systemUpdates.push(...systems);
-  };
-
-const registerSystemEvent =
-  <T extends EventMap>(world: World<T>) =>
-  (...systems: SystemEvent<T>[]): void => {
-    world.systemEvents.push(...systems);
-  };
-
-export const update =
-  <T extends EventMap>(world: World<T>) =>
-  (deltaTime: number): void => {
-    const events: Event<T, EventType<T>>[] = [];
-
-    for (const system of world.systemUpdates) {
-      system({
-        world,
-        deltaTime,
-        emit: emit(events),
-        getComponentRequired: getComponentRequired(world),
-        getComponent: getComponent(world),
-        addComponent: addComponent(world),
-        removeComponent: removeComponent(world),
-        createEntity: createEntity(world),
-        destroyEntity: destroyEntity(world),
-        registerSystemEvent: registerSystemEvent(world),
-        registerSystemUpdate: registerSystemUpdate(world),
-      });
-    }
-
-    for (const system of world.systemEvents) {
-      system({
-        world,
-        deltaTime,
-        poll: poll(events),
-        getComponentRequired: getComponentRequired(world),
-        getComponent: getComponent(world),
-        addComponent: addComponent(world),
-        removeComponent: removeComponent(world),
-        createEntity: createEntity(world),
-        destroyEntity: destroyEntity(world),
-        registerSystemEvent: registerSystemEvent(world),
-        registerSystemUpdate: registerSystemUpdate(world),
-      });
+const addSystem =
+  <T extends EventMap, Tag extends string>(world: World<T, Tag>) =>
+  (...systems: SystemDefinition<T, Tag>[]): void => {
+    for (const { dependencies, ...system } of systems) {
+      world.registry.registerSystem(system, dependencies);
     }
   };
 
 export const query =
   <M extends ComponentClassMap>(componentMap: M) =>
-  <T extends EventMap>(
-    world: World<T>
+  <T extends EventMap, Tag extends string>(
+    world: World<T, Tag>
   ): ({ entityId: EntityId } & ComponentInstanceMap<M>)[] => {
     const result: Array<{ entityId: EntityId } & ComponentInstanceMap<M>> = [];
 
@@ -217,8 +174,8 @@ export const query =
 
 export const queryRequired =
   <M extends ComponentClassMap>(componentMap: M) =>
-  <T extends EventMap>(
-    world: World<T>
+  <T extends EventMap, Tag extends string>(
+    world: World<T, Tag>
   ): [
     { entityId: EntityId } & ComponentInstanceMap<M>,
     ...({ entityId: EntityId } & ComponentInstanceMap<M>)[]
@@ -239,29 +196,28 @@ export const queryRequired =
     ];
   };
 
-export class ECS<T extends EventMap> implements World<T> {
-  static create<T extends EventMap>(
-    init: (_: InitFunctions<T>) => void
+export class ECS<E extends EventMap, Tag extends string = string>
+  implements World<E, Tag>
+{
+  static create<T extends EventMap, Tag extends string = string>(
+    init: (_: InitFunctions<T, Tag>) => void
   ): World<T> {
     const world = new ECS<T>();
     init({
       addComponent: addComponent(world),
       createEntity: createEntity(world),
-      registerSystemEvent: registerSystemEvent(world),
-      registerSystemUpdate: registerSystemUpdate(world),
+      addSystem: addSystem(world),
     });
     return world;
   }
 
-  registry: SystemRegistry<T> = new SystemRegistry();
+  registry: SystemRegistry<E, Tag> = new SystemRegistry();
   entities: Set<EntityId> = new Set();
   components: Map<EntityId, Map<string, ComponentType>> = new Map();
   nextEntityId: EntityId = 0 as EntityId;
-  systemUpdates: SystemUpdate<T>[] = [];
-  systemEvents: SystemEvent<T>[] = [];
 
   public update(deltaTime: number): void {
-    const events: Event<T, EventType<T>>[] = [];
+    const events: Event<E, EventType<E>>[] = [];
     this.registry.execute({
       world: this,
       deltaTime,
@@ -271,8 +227,7 @@ export class ECS<T extends EventMap> implements World<T> {
       removeComponent: removeComponent(this),
       createEntity: createEntity(this),
       destroyEntity: destroyEntity(this),
-      registerSystemEvent: registerSystemEvent(this),
-      registerSystemUpdate: registerSystemUpdate(this),
+      addSystem: addSystem(this),
       poll: poll(events),
       emit: emit(events),
     });

@@ -1,15 +1,16 @@
-import { ECS, update } from "@typeonce/ecs";
+import { ECS } from "@typeonce/ecs";
 import * as PIXI from "pixi.js";
 import { Collidable, Movement, Player, Position, Sprite } from "./components";
 import { TILE_SIZE } from "./constants";
 import type { GameEventMap } from "./events";
 import { InputManager } from "./input-manager";
 import {
+  ApplyMovementSystem,
   CollisionSystem,
   InputSystem,
   MovementSystem,
-  PostMovementSystem,
   RenderSystem,
+  type SystemTags,
 } from "./systems";
 
 const app = new PIXI.Application();
@@ -34,21 +35,18 @@ app.stage.addChild(grid);
 
 const inputManager = new InputManager();
 
-const world = ECS.create<GameEventMap>(
-  ({
-    registerSystemUpdate,
-    registerSystemEvent,
-    createEntity,
-    addComponent,
-  }) => {
-    registerSystemUpdate(
+const world = ECS.create<GameEventMap, SystemTags>(
+  ({ addSystem, createEntity, addComponent }) => {
+    addSystem(
+      { ...ApplyMovementSystem, dependencies: ["Collision"] },
       MovementSystem,
       RenderSystem,
-      CollisionSystem({ width: 800, height: 600 }),
+      {
+        ...CollisionSystem({ width: 800, height: 600 }),
+        dependencies: ["Movement"],
+      },
       InputSystem(inputManager)
     );
-
-    registerSystemEvent(PostMovementSystem);
 
     const playerSprite = new PIXI.Sprite(PIXI.Texture.WHITE);
     playerSprite.width = TILE_SIZE;
@@ -87,5 +85,5 @@ const world = ECS.create<GameEventMap>(
 );
 
 app.ticker.add(({ deltaTime }) => {
-  update(world)(deltaTime);
+  world.update(deltaTime);
 });

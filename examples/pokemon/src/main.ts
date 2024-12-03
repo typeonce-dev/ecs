@@ -14,6 +14,18 @@ await app.init({
 });
 document.body.appendChild(app.canvas);
 
+const grid = new PIXI.Graphics();
+for (let i = 0; i < TILE_SIZE; i++) {
+  grid.moveTo(i * TILE_SIZE, 0).lineTo(i * TILE_SIZE, 600);
+}
+
+for (let i = 0; i < TILE_SIZE; i++) {
+  grid.moveTo(0, i * TILE_SIZE).lineTo(800, i * TILE_SIZE);
+}
+
+grid.stroke({ color: "#ffffff10", pixelLine: true });
+app.stage.addChild(grid);
+
 const inputManager = new InputManager();
 
 const world = ECS.create<GameEventMap>(
@@ -34,7 +46,7 @@ const world = ECS.create<GameEventMap>(
     addComponent(
       playerId,
       new Player(),
-      new Position({ x: TILE_SIZE * 7, y: TILE_SIZE * 7 }),
+      new Position({ x: TILE_SIZE * 7 - TILE_SIZE / 2, y: TILE_SIZE * 7 }),
       new Sprite({ sprite: playerSprite }),
       new Movement({
         direction: null,

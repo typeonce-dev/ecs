@@ -38,14 +38,11 @@ const inputManager = new InputManager();
 const world = ECS.create<GameEventMap, SystemTags>(
   ({ addSystem, createEntity, addComponent }) => {
     addSystem(
-      { ...ApplyMovementSystem, dependencies: ["Collision"] },
-      MovementSystem,
-      RenderSystem,
-      {
-        ...CollisionSystem({ width: 800, height: 600 }),
-        dependencies: ["Movement"],
-      },
-      InputSystem(inputManager)
+      new ApplyMovementSystem(),
+      new MovementSystem(),
+      new RenderSystem(),
+      new CollisionSystem({ gridSize: { width: 800, height: 600 } }),
+      new InputSystem({ inputManager })
     );
 
     const playerSprite = new PIXI.Sprite(PIXI.Texture.WHITE);

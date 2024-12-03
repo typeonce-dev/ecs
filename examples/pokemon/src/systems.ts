@@ -1,8 +1,13 @@
-import { query, queryRequired, type System } from "@typeonce/ecs";
+import { query, queryRequired, System } from "@typeonce/ecs";
 import { Collidable, Movement, Player, Position, Sprite } from "./components";
 import { TILE_SIZE } from "./constants";
 import { type GameEventMap } from "./events";
 import type { InputManager } from "./input-manager";
+
+const moving = query({ position: Position, movement: Movement });
+const pixiRender = query({ position: Position, sprite: Sprite });
+const collisions = query({ position: Position, collidable: Collidable });
+const playerQuery = queryRequired({ movement: Movement, player: Player });
 
 export type SystemTags =
   | "Movement"
@@ -12,13 +17,18 @@ export type SystemTags =
   | "Collision"
   | "ApplyMovement";
 
-const moving = query({ position: Position, movement: Movement });
-const pixiRender = query({ position: Position, sprite: Sprite });
-const collisions = query({ position: Position, collidable: Collidable });
-const playerQuery = queryRequired({ movement: Movement, player: Player });
+const SystemFactory = System<GameEventMap, SystemTags>();
 
-export const MovementSystem: System<GameEventMap, SystemTags> = {
-  _tag: "Movement",
+export class RenderSystem extends SystemFactory<{}>("Render", {
+  execute: ({ world }) => {
+    pixiRender(world).forEach(({ position, sprite }) => {
+      sprite.sprite.x = position.x;
+      sprite.sprite.y = position.y;
+    });
+  },
+}) {}
+
+export class MovementSystem extends SystemFactory<{}>("Movement", {
   execute: ({ world }) => {
     moving(world).forEach(({ position, movement }) => {
       if (!movement.isMoving && movement.direction) {
@@ -44,10 +54,10 @@ export const MovementSystem: System<GameEventMap, SystemTags> = {
       }
     });
   },
-};
+}) {}
 
-export const ApplyMovementSystem: System<GameEventMap, SystemTags> = {
-  _tag: "ApplyMovement",
+export class ApplyMovementSystem extends SystemFactory<{}>("ApplyMovement", {
+  dependencies: ["Collision"],
   execute: ({ world, deltaTime }) => {
     moving(world).forEach(({ position, movement }) => {
       if (movement.isMoving) {
@@ -76,42 +86,31 @@ export const ApplyMovementSystem: System<GameEventMap, SystemTags> = {
       }
     });
   },
-};
+}) {}
 
-export const RenderSystem: System<GameEventMap, SystemTags> = {
-  _tag: "Render",
-  execute: ({ world }) => {
-    pixiRender(world).forEach(({ position, sprite }) => {
-      sprite.sprite.x = position.x;
-      sprite.sprite.y = position.y;
-    });
-  },
-};
+export class InputSystem extends SystemFactory<{ inputManager: InputManager }>(
+  "Input",
+  {
+    execute: ({ world, input: { inputManager } }) => {
+      const { movement } = playerQuery(world)[0];
+      if (inputManager.isKeyPressed("ArrowDown")) {
+        movement.direction = "down";
+      } else if (inputManager.isKeyPressed("ArrowUp")) {
+        movement.direction = "up";
+      } else if (inputManager.isKeyPressed("ArrowLeft")) {
+        movement.direction = "left";
+      } else if (inputManager.isKeyPressed("ArrowRight")) {
+        movement.direction = "right";
+      }
+    },
+  }
+) {}
 
-export const InputSystem = (
-  inputManager: InputManager
-): System<GameEventMap, SystemTags> => ({
-  _tag: "Input",
-  execute: ({ world }) => {
-    const { movement } = playerQuery(world)[0];
-    if (inputManager.isKeyPressed("ArrowDown")) {
-      movement.direction = "down";
-    } else if (inputManager.isKeyPressed("ArrowUp")) {
-      movement.direction = "up";
-    } else if (inputManager.isKeyPressed("ArrowLeft")) {
-      movement.direction = "left";
-    } else if (inputManager.isKeyPressed("ArrowRight")) {
-      movement.direction = "right";
-    }
-  },
-});
-
-export const CollisionSystem = (gridSize: {
-  width: number;
-  height: number;
-}): System<GameEventMap, SystemTags> => ({
-  _tag: "Collision",
-  execute: ({ world }) => {
+export class CollisionSystem extends SystemFactory<{
+  gridSize: { width: number; height: number };
+}>("Collision", {
+  dependencies: ["Movement"],
+  execute: ({ world, input: { gridSize } }) => {
     const occupiedPositions = new Map<string, boolean>();
 
     collisions(world).forEach(({ position, collidable }) => {
@@ -138,4 +137,4 @@ export const CollisionSystem = (gridSize: {
       }
     });
   },
-});
+}) {}

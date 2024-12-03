@@ -1,17 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  addComponent,
-  Component,
-  createEntity,
-  getComponentRequired,
-  query,
-  queryRequired,
-  registerSystemEvent,
-  registerSystemUpdate,
-  update,
-} from "../src/ecs";
-import type { SystemEvent, SystemUpdate } from "../src/types";
-import { ECS } from "../src/world";
+import { Component, ECS, System } from "../src/ecs";
 
 describe("Component", () => {
   it("creates a component class with correct properties and tag", () => {
@@ -41,200 +29,60 @@ describe("Component", () => {
   });
 });
 
-describe("getComponentRequired", () => {
-  it("extracts the correct component from the world entity", () => {
-    class AsVoid extends Component("AsVoid")<{}> {}
-    class Position extends Component("Position")<{
-      x: number;
-      y: number;
-    }> {}
-
-    const world = new ECS();
-    const entity = createEntity()(world);
-    const position = new Position({ x: 10, y: 20 });
-    const asVoid = new AsVoid();
-
-    addComponent(entity, position, asVoid)(world);
-
-    const getEntity = getComponentRequired({
-      position: Position,
-      asVoid: AsVoid,
-    });
-
-    const entityWithComponents = getEntity(entity)(world);
-
-    expect(entityWithComponents).toHaveProperty("entityId", entity);
-    expect(entityWithComponents).toHaveProperty("position", position);
-    expect(entityWithComponents).toHaveProperty("asVoid", asVoid);
-    expect(entityWithComponents.position).toBeInstanceOf(Position);
-    expect(entityWithComponents.asVoid).toBeInstanceOf(AsVoid);
-    expect(entityWithComponents.position).toBe(position);
-    expect(entityWithComponents.asVoid).toBe(asVoid);
-    expect(entityWithComponents.position._tag).toBe("Position");
-    expect(entityWithComponents.position.x).toBe(10);
-    expect(entityWithComponents.position.y).toBe(20);
-    expect(entityWithComponents.asVoid._tag).toBe("AsVoid");
-  });
-});
-
-describe("queryRequired", () => {
-  it("creates a function that expects the correct component from the world entity", () => {
-    class AsVoid extends Component("AsVoid")<{}> {}
-    class Position extends Component("Position")<{
-      x: number;
-      y: number;
-    }> {}
-
-    const world = new ECS();
-    const entity = createEntity()(world);
-    const position = new Position({ x: 10, y: 20 });
-    const asVoid = new AsVoid();
-
-    addComponent(entity, position, asVoid)(world);
-
-    const withComponent = queryRequired({
-      position: Position,
-      asVoid: AsVoid,
-    })(world);
-
-    const entityWithComponents = withComponent[0];
-
-    expect(entityWithComponents).toHaveProperty("entityId", entity);
-    expect(entityWithComponents).toHaveProperty("position", position);
-    expect(entityWithComponents).toHaveProperty("asVoid", asVoid);
-    expect(entityWithComponents.position).toBeInstanceOf(Position);
-    expect(entityWithComponents.asVoid).toBeInstanceOf(AsVoid);
-    expect(entityWithComponents.position).toBe(position);
-    expect(entityWithComponents.asVoid).toBe(asVoid);
-    expect(entityWithComponents.position._tag).toBe("Position");
-    expect(entityWithComponents.position.x).toBe(10);
-    expect(entityWithComponents.position.y).toBe(20);
-    expect(entityWithComponents.asVoid._tag).toBe("AsVoid");
-  });
-
-  it("is possible to defined and reuse the query in multiple systems", () => {
-    class Position extends Component("Position")<{
-      x: number;
-      y: number;
-    }> {}
-
-    const world = new ECS();
-    const entity = createEntity()(world);
-    const position = new Position({ x: 10, y: 20 });
-    addComponent(entity, position)(world);
-
-    const withPosition = queryRequired({
-      position: Position,
-    });
-
-    const update1: SystemUpdate = (world) => (_) => {
-      const entity = withPosition(world)[0];
-      entity.position.x = 30;
-      entity.position.y = 30;
-    };
-
-    const update2: SystemUpdate = (world) => (_) => {
-      const entity = withPosition(world)[0];
-      entity.position.x = 50;
-      entity.position.y = 50;
-    };
-
-    registerSystemUpdate(update1, update2)(world);
-    update(0)(world);
-
-    const entityWithComponents = withPosition(world)[0];
-
-    expect(entityWithComponents.position._tag).toBe("Position");
-    expect(entityWithComponents.position.x).toBe(50);
-    expect(entityWithComponents.position.y).toBe(50);
-  });
-});
-
-describe("query", () => {
-  it("returns an empty array if no entities match the query", () => {
-    class AsVoid extends Component("AsVoid")<{}> {}
-    class Position extends Component("Position")<{
-      x: number;
-      y: number;
-    }> {}
-
-    const world = new ECS();
-    const entity = createEntity()(world);
-    const position = new Position({ x: 10, y: 20 });
-
-    addComponent(entity, position)(world);
-
-    const withComponentEmpty = query({
-      position: Position,
-      asVoid: AsVoid,
-    })(world);
-
-    const withComponentFound = query({
-      position: Position,
-    })(world);
-
-    expect(withComponentEmpty).toHaveLength(0);
-    expect(withComponentFound).toHaveLength(1);
-  });
-});
-
 describe("Systems", () => {
-  it("execute system update", () => {
-    class Position extends Component("Position")<{
-      x: number;
-      y: number;
-    }> {}
+  it("create systems from system factory", () => {
+    const SystemFactory = System<{}, "A">();
 
-    const world = new ECS();
-    const entityId = createEntity()(world);
-    const position = new Position({ x: 10, y: 20 });
+    class A extends SystemFactory<{
+      a: number;
+    }>("A", {
+      dependencies: [],
+      execute: ({ input: { a } }) => {
+        expect(a).toBe(10);
+      },
+    }) {}
 
-    addComponent(entityId, position)(world);
+    const system = new A({ a: 10 });
+    expect(system.a).toBe(10);
+    const world = ECS.create(({ addSystem }) => {
+      addSystem(system);
+    });
 
-    const system: SystemUpdate = (world) => (_) => {
-      const entity = getComponentRequired({
-        position: Position,
-      })(entityId)(world);
-
-      entity.position.x = 30;
-      entity.position.y = 30;
-    };
-
-    registerSystemUpdate(system)(world);
-    update(0)(world);
-
-    const entity = getComponentRequired({
-      position: Position,
-    })(entityId)(world);
-
-    expect(entity.position.x).toBe(30);
-    expect(entity.position.y).toBe(30);
+    world.update(0);
   });
 
-  it("receives events in system events from system updates", () => {
-    const event = Symbol("event");
-    type EventMap = {
-      [event]: number;
-    };
+  it("executes systems based on dependencies", () => {
+    const SystemFactory = System<{}, "A" | "B">();
+    let bExecuted = false;
 
-    const world = new ECS<EventMap>();
+    class A extends SystemFactory<{
+      a: number;
+    }>("A", {
+      dependencies: ["B"],
+      execute: ({ input: { a } }) => {
+        expect(bExecuted).toBe(true);
+        expect(a).toBe(10);
+      },
+    }) {}
 
-    const systemUpdate: SystemUpdate<EventMap> =
-      (_) =>
-      ({ emit }) => {
-        emit({ type: event, data: 10 });
-      };
+    class B extends SystemFactory<{
+      b: string;
+    }>("B", {
+      dependencies: [],
+      execute: ({ input: { b } }) => {
+        bExecuted = true;
+        expect(b).toBe("abc");
+      },
+    }) {}
 
-    const systemEvents: SystemEvent<EventMap> =
-      (_) =>
-      ({ poll }) => {
-        const events = poll(event);
-        expect(events).toHaveLength(1);
-        expect(events[0].data).toBe(10);
-      };
+    const a = new A({ a: 10 });
+    const b = new B({ b: "abc" });
+    expect(a.a).toBe(10);
+    expect(b.b).toBe("abc");
+    const world = ECS.create(({ addSystem }) => {
+      addSystem(a, b);
+    });
 
-    registerSystemUpdate(systemUpdate)(world);
-    registerSystemEvent(systemEvents)(world);
-    update(0)(world);
+    world.update(0);
   });
 });

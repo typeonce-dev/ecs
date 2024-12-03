@@ -1,15 +1,15 @@
-import type { EventMap, System, SystemExecute } from "./types";
+import type { AnySystem, EventMap, SystemExecute } from "./types";
 
 export class SystemRegistry<
   T extends EventMap = {},
   Tag extends string = string
 > {
-  private systems: Map<Tag, System<T, Tag>> = new Map();
+  private systems: Map<Tag, AnySystem<T, Tag>> = new Map();
   private dependencies: Map<Tag, Set<Tag>> = new Map();
 
-  registerSystem(system: System<T, Tag>, dependsOn: Tag[] = []) {
+  registerSystem(system: AnySystem<T, Tag>) {
     this.systems.set(system._tag, system);
-    this.dependencies.set(system._tag, new Set(dependsOn));
+    this.dependencies.set(system._tag, new Set(system.dependencies));
   }
 
   private resolveExecutionOrder() {

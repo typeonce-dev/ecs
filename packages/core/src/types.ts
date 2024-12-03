@@ -79,7 +79,7 @@ type RemoveComponent<T extends EventMap, Tag extends string> = (
 
 type AddSystem<T extends EventMap, Tag extends string> = (
   world: World<T, Tag>
-) => (...systems: SystemDefinition<T, Tag>[]) => void;
+) => (...systems: SystemType<T, Tag, any>[]) => void;
 
 export type InitFunctions<T extends EventMap, Tag extends string> = {
   addComponent: ReturnType<AddComponent<T, Tag>>;
@@ -105,17 +105,21 @@ export type SystemExecute<
 > = InitFunctions<T, Tag> &
   SystemFunctions<T, Tag> & { emit: EventEmit<T>; poll: EventPoll<T> };
 
-export type System<T extends EventMap = {}, Tag extends string = string> = {
-  _tag: Tag;
-  execute: (_: SystemExecute<T, Tag>) => void;
+export type SystemType<
+  T extends EventMap,
+  Tag extends string,
+  Exe extends SystemExecute<T, Tag>
+> = {
+  readonly _tag: Tag;
+  readonly dependencies: Tag[];
+  readonly execute: (_: Exe) => void;
 };
 
-export type SystemDefinition<
-  T extends EventMap = {},
-  Tag extends string = string
-> = System<T, Tag> & {
-  dependencies?: Tag[];
-};
+export type AnySystem<T extends EventMap, Tag extends string> = SystemType<
+  T,
+  Tag,
+  any
+>;
 
 export interface World<E extends EventMap, Tag extends string = string> {
   entities: Set<EntityId>;

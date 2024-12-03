@@ -1,5 +1,6 @@
 import { SystemRegistry } from "./registry";
 import type {
+  AnySystem,
   ComponentClass,
   ComponentClassMap,
   ComponentInstanceMap,
@@ -10,7 +11,7 @@ import type {
   EventMap,
   EventType,
   InitFunctions,
-  SystemDefinition,
+  SystemExecute,
   World,
 } from "./types";
 
@@ -38,6 +39,55 @@ export const Component = <Tag extends string>(
   (Base as any)._tag = tag;
   return Base as any;
 };
+
+export const System: <T extends EventMap, Tag extends string>() => <
+  A extends Record<string, any> = {}
+>(
+  tag: Tag,
+  params: {
+    execute: (_: SystemExecute<T, Tag> & { input: A }) => void;
+    dependencies?: Tag[];
+  }
+) => {
+  new (
+    args: Equals<A, {}> extends true
+      ? void
+      : {
+          readonly [P in keyof A as P extends "_tag" ? never : P]: A[P];
+        }
+  ): {
+    readonly _tag: Tag;
+    readonly execute: (_: SystemExecute<T, Tag> & { input: A }) => void;
+    readonly dependencies: Tag[];
+  } & A;
+} =
+  () =>
+  (tag, { execute, dependencies = [] }) => {
+    class Base {
+      readonly _tag = tag;
+      readonly dependencies = dependencies;
+      readonly execute = (_: any) =>
+        execute({
+          ..._,
+          input:
+            // @ts-ignore
+            this.input as any,
+        });
+      constructor(args: any) {
+        if (args) {
+          Object.assign(this, args);
+          Object.defineProperty(this, "input", {
+            get() {
+              return args;
+            },
+          });
+        }
+      }
+    }
+    (Base.prototype as any).name = tag;
+    (Base as any)._tag = tag;
+    return Base as any;
+  };
 
 const getComponentRequired =
   <T extends EventMap, Tag extends string>(world: World<T, Tag>) =>
@@ -149,9 +199,9 @@ const poll =
 
 const addSystem =
   <T extends EventMap, Tag extends string>(world: World<T, Tag>) =>
-  (...systems: SystemDefinition<T, Tag>[]): void => {
-    for (const { dependencies, ...system } of systems) {
-      world.registry.registerSystem(system, dependencies);
+  (...systems: AnySystem<T, Tag>[]): void => {
+    for (const system of systems) {
+      world.registry.registerSystem(system);
     }
   };
 

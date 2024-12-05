@@ -197,6 +197,25 @@ const destroyEntity =
     }
   };
 
+const setComponent =
+  <T extends EventMap, Tag extends string>(
+    world: World<T, Tag>,
+    mutations: Mutation[]
+  ) =>
+  <T extends ComponentType>(
+    entityId: EntityId,
+    ...components: NoInfer<T>[]
+  ) => {
+    if (!world.components.has(entityId)) {
+      world.components.set(entityId, new Map());
+    }
+
+    for (let i = 0; i < components.length; i++) {
+      const component = components[i]!;
+      mutations.push({ type: "setComponent", entityId, component });
+    }
+  };
+
 const emit =
   <T extends EventMap>(events: Event<T, EventType<T>>[]) =>
   <E extends EventType<T>>(event: Event<T, E>): void => {
@@ -317,6 +336,7 @@ export class ECS<E extends EventMap, Tag extends string = string>
       addComponent: addComponent(this, mutations),
       removeComponent: removeComponent(this, mutations),
       destroyEntity: destroyEntity(this, mutations),
+      setComponent: setComponent(this, mutations),
 
       addSystem: addSystem(this),
 
@@ -343,6 +363,11 @@ export class ECS<E extends EventMap, Tag extends string = string>
           break;
         case "destroyEntity":
           this.entities.delete(mutation.entityId);
+          break;
+        case "setComponent":
+          this.components
+            .get(mutation.entityId)!
+            .set(mutation.component._tag, mutation.component);
           break;
       }
     }

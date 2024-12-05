@@ -100,10 +100,90 @@ describe("Systems", () => {
 
     const a = new A();
     const b = new B();
+    const world = ECS.create(({ addSystem }) => {
+      addSystem(a, b);
+    });
+
+    world.update(0);
+  });
+
+  it("components updates are applied the end of the update (last update wins)", () => {
+    class AsValue extends Component("AsValue")<{ value: number }> {}
+    const SystemFactory = System<{}, "A" | "B">();
+    let isFirstUpdate = true;
+
+    const withValues = query({ asValue: AsValue });
+    class A extends SystemFactory<{}>("A", {
+      execute: ({ setComponent }) => {
+        withValues(world).forEach(({ entityId, asValue }) => {
+          if (isFirstUpdate) {
+            expect(asValue.value).toBe(10);
+          } else {
+            expect(asValue.value).toBe(30);
+          }
+          setComponent(entityId, new AsValue({ value: 20 }));
+        });
+      },
+    }) {}
+
+    class B extends SystemFactory<{}>("B", {
+      dependencies: ["A"],
+      execute: ({ setComponent }) => {
+        withValues(world).forEach(({ entityId, asValue }) => {
+          if (isFirstUpdate) {
+            expect(asValue.value).toBe(10);
+          } else {
+            expect(asValue.value).toBe(30);
+          }
+          setComponent(entityId, new AsValue({ value: 30 }));
+        });
+      },
+    }) {}
+
+    const a = new A();
+    const b = new B();
+    const world = ECS.create(({ addSystem, addComponent, createEntity }) => {
+      addSystem(a, b);
+      addComponent(createEntity(), new AsValue({ value: 10 }));
+    });
+
+    world.update(0);
+    isFirstUpdate = false;
+    world.update(0);
+  });
+
+  it("can use setComponent to a new entity", () => {
+    class AsValue extends Component("AsValue")<{ value: number }> {}
+    const SystemFactory = System<{}, "A" | "B">();
+    let isFirstUpdate = true;
+
+    const withValues = query({ asValue: AsValue });
+    class A extends SystemFactory<{}>("A", {
+      execute: ({ setComponent, createEntity }) => {
+        setComponent(createEntity(), new AsValue({ value: 20 }));
+      },
+    }) {}
+
+    class B extends SystemFactory<{}>("B", {
+      dependencies: ["A"],
+      execute: ({ world }) => {
+        const entities = withValues(world);
+        if (isFirstUpdate) {
+          expect(entities.length).toBe(0);
+        } else {
+          expect(entities.length).toBe(1);
+        }
+      },
+    }) {}
+
+    const a = new A();
+    const b = new B();
     const world = ECS.create(({ addSystem, addComponent, createEntity }) => {
       addSystem(a, b);
     });
 
+    world.update(0);
+    isFirstUpdate = false;
     world.update(0);
   });
 

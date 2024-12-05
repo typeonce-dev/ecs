@@ -70,13 +70,6 @@ type AddComponent<T extends EventMap, Tag extends string> = (
   ...components: NoInfer<T>[]
 ) => void;
 
-type SetComponent<T extends EventMap, Tag extends string> = (
-  world: World<T, Tag>
-) => <T extends ComponentType>(
-  entityId: EntityId,
-  ...components: NoInfer<T>[]
-) => void;
-
 type RemoveComponent<T extends EventMap, Tag extends string> = (
   world: World<T, Tag>
 ) => <T extends ComponentType>(
@@ -104,7 +97,6 @@ type SystemFunctions<T extends EventMap, Tag extends string> = InitFunctions<
   getComponent: ReturnType<GetComponent<T, Tag>>;
   removeComponent: ReturnType<RemoveComponent<T, Tag>>;
   destroyEntity: (entityId: EntityId) => void;
-  setComponent: ReturnType<SetComponent<T, Tag>>;
 };
 
 export type SystemExecute<

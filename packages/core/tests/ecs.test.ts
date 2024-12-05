@@ -36,7 +36,6 @@ describe("Systems", () => {
     class A extends SystemFactory<{
       a: number;
     }>("A", {
-      dependencies: [],
       execute: ({ input: { a } }) => {
         expect(a).toBe(10);
       },
@@ -46,6 +45,63 @@ describe("Systems", () => {
     expect(system.a).toBe(10);
     const world = ECS.create(({ addSystem }) => {
       addSystem(system);
+    });
+
+    world.update(0);
+  });
+
+  it("can emit and access events", () => {
+    const event = Symbol("event");
+    const SystemFactory = System<{ [event]: number }, "A" | "B">();
+
+    class A extends SystemFactory<{}>("A", {
+      execute: ({ emit }) => {
+        emit({ type: event, data: 10 });
+      },
+    }) {}
+
+    class B extends SystemFactory<{}>("B", {
+      dependencies: ["A"],
+      execute: ({ poll }) => {
+        const events = poll(event);
+        expect(events).toHaveLength(1);
+        events.forEach((event) => {
+          expect(event.data).toBe(10);
+        });
+      },
+    }) {}
+
+    const a = new A();
+    const b = new B();
+    const world = ECS.create(({ addSystem }) => {
+      addSystem(a, b);
+    });
+
+    world.update(0);
+  });
+
+  it("mutations are applied at the end of the update", () => {
+    class AsVoid extends Component("AsVoid")<{}> {}
+    const SystemFactory = System<{}, "A" | "B">();
+
+    class A extends SystemFactory<{}>("A", {
+      execute: ({ addComponent, createEntity }) => {
+        addComponent(createEntity(), new AsVoid());
+      },
+    }) {}
+
+    class B extends SystemFactory<{}>("B", {
+      dependencies: ["A"],
+      execute: ({ world }) => {
+        const entities = query({ asVoid: AsVoid })(world);
+        expect(entities).toHaveLength(0);
+      },
+    }) {}
+
+    const a = new A();
+    const b = new B();
+    const world = ECS.create(({ addSystem, addComponent, createEntity }) => {
+      addSystem(a, b);
     });
 
     world.update(0);

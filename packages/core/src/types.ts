@@ -121,6 +121,11 @@ export type AnySystem<T extends EventMap, Tag extends string> = SystemType<
   any
 >;
 
+export type Mutation =
+  | { type: "addComponent"; entityId: EntityId; component: ComponentType }
+  | { type: "removeComponent"; entityId: EntityId; component: ComponentType }
+  | { type: "destroyEntity"; entityId: EntityId };
+
 export interface World<E extends EventMap, Tag extends string = string> {
   entities: Set<EntityId>;
   components: Map<EntityId, Map<string, ComponentType>>;

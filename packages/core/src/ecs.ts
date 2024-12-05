@@ -11,6 +11,7 @@ import type {
   EventMap,
   EventType,
   InitFunctions,
+  Mutation,
   SystemExecute,
   World,
 } from "./types";
@@ -139,7 +140,10 @@ const getComponent =
   };
 
 const addComponent =
-  <T extends EventMap, Tag extends string>(world: World<T, Tag>) =>
+  <T extends EventMap, Tag extends string>(
+    world: World<T, Tag>,
+    mutations: Mutation[]
+  ) =>
   <T extends ComponentType>(
     entityId: EntityId,
     ...components: NoInfer<T>[]
@@ -150,19 +154,26 @@ const addComponent =
 
     for (let i = 0; i < components.length; i++) {
       const component = components[i]!;
-      world.components.get(entityId)!.set(component._tag, component);
+      mutations.push({ type: "addComponent", entityId, component });
     }
   };
 
 const removeComponent =
-  <T extends EventMap, Tag extends string>(world: World<T, Tag>) =>
+  <T extends EventMap, Tag extends string>(
+    world: World<T, Tag>,
+    mutations: Mutation[]
+  ) =>
   <T extends ComponentType>(
     entityId: EntityId,
     componentClass: ComponentClass<T>
   ): void => {
     const entityComponents = world.components.get(entityId);
     if (entityComponents) {
-      entityComponents.delete(componentClass._tag);
+      mutations.push({
+        type: "removeComponent",
+        entityId,
+        component: componentClass,
+      });
     }
   };
 
@@ -175,11 +186,14 @@ const createEntity =
   };
 
 const destroyEntity =
-  <T extends EventMap, Tag extends string>(world: World<T, Tag>) =>
+  <T extends EventMap, Tag extends string>(
+    world: World<T, Tag>,
+    mutations: Mutation[]
+  ) =>
   (entityId: EntityId): void => {
     const wasDeleted = world.entities.delete(entityId);
     if (wasDeleted) {
-      world.components.delete(entityId);
+      mutations.push({ type: "destroyEntity", entityId });
     }
   };
 
@@ -275,11 +289,13 @@ export class ECS<E extends EventMap, Tag extends string = string>
     init: (_: InitFunctions<T, Tag>) => void
   ): World<T> {
     const world = new ECS<T>();
+    const mutations: Mutation[] = [];
     init({
-      addComponent: addComponent(world),
+      addComponent: addComponent(world, mutations),
       createEntity: createEntity(world),
       addSystem: addSystem(world),
     });
+    world.applyMutations(mutations);
     return world;
   }
 
@@ -290,18 +306,45 @@ export class ECS<E extends EventMap, Tag extends string = string>
 
   public update(deltaTime: number): void {
     const events: Event<E, EventType<E>>[] = [];
+    const mutations: Mutation[] = [];
     this.registry.execute({
       world: this,
       deltaTime,
       getComponentRequired: getComponentRequired(this),
       getComponent: getComponent(this),
-      addComponent: addComponent(this),
-      removeComponent: removeComponent(this),
       createEntity: createEntity(this),
-      destroyEntity: destroyEntity(this),
+
+      addComponent: addComponent(this, mutations),
+      removeComponent: removeComponent(this, mutations),
+      destroyEntity: destroyEntity(this, mutations),
+
       addSystem: addSystem(this),
+
       poll: poll(events),
       emit: emit(events),
     });
+
+    this.applyMutations(mutations);
+  }
+
+  private applyMutations(mutations: Mutation[]): void {
+    for (let i = 0; i < mutations.length; i++) {
+      const mutation = mutations[i]!;
+      switch (mutation.type) {
+        case "addComponent":
+          this.components
+            .get(mutation.entityId)!
+            .set(mutation.component._tag, mutation.component);
+          break;
+        case "removeComponent":
+          this.components
+            .get(mutation.entityId)!
+            .delete(mutation.component._tag);
+          break;
+        case "destroyEntity":
+          this.entities.delete(mutation.entityId);
+          break;
+      }
+    }
   }
 }

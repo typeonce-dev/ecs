@@ -206,20 +206,42 @@ const addSystem =
   };
 
 export const query =
-  <M extends ComponentClassMap>(componentMap: M) =>
+  <M extends ComponentClassMap, T extends ComponentType>(
+    componentMap: M,
+    notComponents?: ComponentClass<NoInfer<T>>[]
+  ) =>
   <T extends EventMap, Tag extends string>(
     world: World<T, Tag>
   ): ({ entityId: EntityId } & ComponentInstanceMap<M>)[] => {
-    const result: Array<{ entityId: EntityId } & ComponentInstanceMap<M>> = [];
+    const result: Map<
+      EntityId,
+      { entityId: EntityId } & ComponentInstanceMap<M>
+    > = new Map();
+    const get = getComponent(world)(componentMap);
 
     for (const entityId of world.entities) {
-      const entity = getComponent(world)(componentMap)(entityId);
+      const entity = get(entityId);
       if (entity) {
-        result.push(entity);
+        result.set(entityId, entity);
       }
     }
 
-    return result;
+    if (notComponents) {
+      const not = getComponent(world)(
+        Object.fromEntries(
+          notComponents.map((component) => [component._tag, component])
+        )
+      );
+
+      for (const entityId of world.entities) {
+        const entity = not(entityId);
+        if (entity) {
+          result.delete(entityId);
+        }
+      }
+    }
+
+    return Array.from(result.values());
   };
 
 export const queryRequired =

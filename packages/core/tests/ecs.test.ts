@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Component, ECS, System } from "../src/ecs";
+import { Component, ECS, query, System } from "../src/ecs";
 
 describe("Component", () => {
   it("creates a component class with correct properties and tag", () => {
@@ -8,7 +8,7 @@ describe("Component", () => {
       x: number;
       y: number;
     }> {}
-    class Speed extends Component("Position")<{
+    class Speed extends Component("Speed")<{
       dx: number;
       dy: number;
     }> {}
@@ -68,7 +68,6 @@ describe("Systems", () => {
     class B extends SystemFactory<{
       b: string;
     }>("B", {
-      dependencies: [],
       execute: ({ input: { b } }) => {
         bExecuted = true;
         expect(b).toBe("abc");
@@ -81,6 +80,131 @@ describe("Systems", () => {
     expect(b.b).toBe("abc");
     const world = ECS.create(({ addSystem }) => {
       addSystem(a, b);
+    });
+
+    world.update(0);
+  });
+
+  it("can handle multiple dependencies", () => {
+    const SystemFactory = System<{}, "A" | "B" | "C">();
+    let bExecuted = false;
+    let cExecuted = false;
+
+    class A extends SystemFactory<{
+      a: number;
+    }>("A", {
+      dependencies: ["B", "C"],
+      execute: ({ input: { a } }) => {
+        expect(bExecuted).toBe(true);
+        expect(cExecuted).toBe(true);
+        expect(a).toBe(10);
+      },
+    }) {}
+
+    class B extends SystemFactory<{
+      b: string;
+    }>("B", {
+      execute: ({ input: { b } }) => {
+        bExecuted = true;
+        expect(b).toBe("abc");
+      },
+    }) {}
+
+    class C extends SystemFactory<{
+      b: boolean;
+    }>("C", {
+      execute: ({ input: { b } }) => {
+        cExecuted = true;
+        expect(b).toBe(true);
+      },
+    }) {}
+
+    const a = new A({ a: 10 });
+    const b = new B({ b: "abc" });
+    const c = new C({ b: true });
+    expect(a.a).toBe(10);
+    expect(b.b).toBe("abc");
+    expect(c.b).toBe(true);
+    const world = ECS.create(({ addSystem }) => {
+      addSystem(a, b, c);
+    });
+
+    world.update(0);
+  });
+});
+
+describe("Queries", () => {
+  it("can query based on multiple components", () => {
+    class Position extends Component("Position")<{
+      x: number;
+      y: number;
+    }> {}
+    class Speed extends Component("Speed")<{
+      dx: number;
+      dy: number;
+    }> {}
+
+    const testQuery = query({ position: Position, speed: Speed });
+
+    const SystemFactory = System<{}, "A">();
+
+    class A extends SystemFactory<{}>("A", {
+      execute: () => {
+        const entities = testQuery(world);
+        expect(entities).toHaveLength(1);
+        expect(entities[0].position.x).toBe(10);
+        expect(entities[0].position.y).toBe(20);
+        expect(entities[0].speed.dy).toBe(2);
+        expect(entities[0].speed.dx).toBe(1);
+      },
+    }) {}
+
+    const world = ECS.create(({ addComponent, createEntity, addSystem }) => {
+      addComponent(
+        createEntity(),
+        new Position({ x: 10, y: 20 }),
+        new Speed({ dx: 1, dy: 2 })
+      );
+
+      addSystem(new A());
+    });
+
+    world.update(0);
+  });
+
+  it("can query entities that don't have a component", () => {
+    class Position extends Component("Position")<{
+      x: number;
+      y: number;
+    }> {}
+    class Speed extends Component("Speed")<{
+      dx: number;
+      dy: number;
+    }> {}
+
+    const testQuery = query({ speed: Speed }, [Position]);
+
+    const SystemFactory = System<{}, "A">();
+
+    class A extends SystemFactory<{}>("A", {
+      execute: () => {
+        const entities = testQuery(world);
+        expect(entities).toHaveLength(1);
+        expect(entities[0].speed.dy).toBe(2);
+        expect(entities[0].speed.dx).toBe(1);
+      },
+    }) {}
+
+    const world = ECS.create(({ addComponent, createEntity, addSystem }) => {
+      addComponent(
+        createEntity(),
+        new Position({ x: 10, y: 20 }),
+        new Speed({ dx: -1, dy: -1 })
+      );
+
+      addComponent(createEntity(), new Speed({ dx: 1, dy: 2 }));
+
+      addSystem(new A());
     });
 
     world.update(0);

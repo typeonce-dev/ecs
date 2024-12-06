@@ -1,6 +1,12 @@
 # `@typeonce/ecs`
 An **Entity Component System** (ECS) implementation in TypeScript, extensible, working with any renderer, type safe and composable 🕹️
 
+> `@typeonce/ecs` has zero dependencies. It makes no assumptions about your game engine, renderer or any other library or framework.
+
+It is designed to provide a **solid and type-safe ECS implementation** to keep the logic of your game organized and easy to understand.
+
+How you choose to render, apply physics, manage input, etc. is up to you, `@typeonce/ecs` **doesn't impose any constraints**.
+
 ## Getting started
 The package is available on [npm](https://www.npmjs.com/package/@typeonce/ecs):
 
@@ -18,7 +24,7 @@ const world = ECS.create(() => {
 });
 ```
 
-> Every call to `ECS.create` creates a new world. You can use multiple worlds for different scenes.
+> Every call to `ECS.create` creates a new world. You can use *multiple worlds for different scenes*.
 
 The function inside `ECS.create` is where you initialize the game:
 - Add systems
@@ -117,8 +123,6 @@ export class FoodSpawnSystem extends SystemFactory<{
 }) {}
 ```
 
-The library does nothing more than organizing the logic of your game into entity, components and systems.
-
 The created `ECS` instance provides an `update` function that you can call each frame to update the game, using whatever other library or framework you prefer:
 
 > Calling `update` will execute all the systems in the world **one time**. You are expected to call `update` once per frame (or whatever other frequency you prefer).
@@ -182,6 +186,9 @@ export interface GameEventMap extends EventMap {
 You can then emit an event using the `emit` function:
 
 ```ts
+// 👇 Apply the `GameEventMap` type to the `SystemFactory` function to make events type-safe
+const SystemFactory = System<SystemTags, GameEventMap>();
+
 export class CollisionSystem extends SystemFactory<{}>("Collision", {
   execute: ({ emit }) => {
     if (/* collision detected */) {

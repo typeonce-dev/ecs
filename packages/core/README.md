@@ -121,7 +121,7 @@ The library does nothing more than organizing the logic of your game into entity
 
 The created `ECS` instance provides an `update` function that you can call each frame to update the game, using whatever other library or framework you prefer:
 
-> Calling `update` will execute all the systems in the world one time. You are expected to call `update` once per frame (or whatever other frequency you prefer).
+> Calling `update` will execute all the systems in the world **one time**. You are expected to call `update` once per frame (or whatever other frequency you prefer).
 
 ```ts
 // Create a world for a snake game (add systems, create entities, etc.)
@@ -163,8 +163,71 @@ const world = ECS.create<SystemTags, GameEventMap>(
 );
 
 // Apply any rendering logic by executing the `update` function from `ECS`
-renderer(world.update);
+renderer((deltaTime) => world.update(deltaTime));
 ```
+
+### Communication between systems
+Events are used to send messages between systems. Any system has access to the `emit` function to emit events:
+
+> Events are type-safe and must be defined in the `GameEventMap` type.
+
+```ts
+export const FoodEatenEvent = Symbol("FoodEaten");
+
+export interface GameEventMap extends EventMap {
+  [FoodEatenEvent]: { entityId: EntityId };
+}
+```
+
+You can then emit an event using the `emit` function:
+
+```ts
+export class CollisionSystem extends SystemFactory<{}>("Collision", {
+  execute: ({ emit }) => {
+    if (/* collision detected */) {
+      emit({
+        type: FoodEatenEvent, // 👈 Emit the event from its unique symbol
+        data: { entityId: entity.entityId }, // 👈 Pass the entity that was eaten
+      });
+    }
+  },
+}) {}
+```
+
+Other systems can use the `poll` function to extract events and react to them:
+
+> Important: events are **cleaned up after each update cycle**. If you want to ensure an event was emitted before executing a system you can use `dependencies` (see below).
+
+```ts
+export class SnakeGrowSystem extends SystemFactory<{}>("SnakeGrow", {
+  dependencies: ["Collision"], // 👈 Ensure the `Collision` system has been executed and events collected
+  execute: ({ poll }) => {
+    poll(FoodEatenEvent).forEach(({ entityId }) => {
+      // Do something with the event (`entityId`)
+    });
+  },
+}) {}
+```
+
+### Systems dependencies
+Sometimes you need to execute a system after another system.
+
+For example, you might want to spawn food only after the snake has eaten it. This creates a dependency between the `FoodSpawnSystem` and the `CollisionSystem`: you first want to detect collisions, and then spawn food if a collision occurs.
+
+You can define a dependency between two systems using the *optional* `dependencies` property:
+
+```ts
+export class FoodSpawnSystem extends SystemFactory<{}>("FoodSpawn", {
+  // Execute this system after the `Collision` system
+  dependencies: ["Collision"],
+
+  execute: ({ world }) => {
+    // Inside here all collisions are already detected from the `CollisionSystem`
+  },
+}) {}
+```
+
+You can specify multiple dependencies. The library takes care of resolving each system's dependencies and execute them in the correct order.
 
 ***
 

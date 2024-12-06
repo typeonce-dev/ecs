@@ -67,7 +67,7 @@ if (canvas && canvas instanceof HTMLCanvasElement) {
       }
     );
 
-    renderer(world.update);
+    renderer((deltaTime) => world.update(deltaTime));
   } else {
     console.error("Canvas context not found");
   }

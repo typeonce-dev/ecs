@@ -17,7 +17,7 @@ export type SystemTags =
   | "Collision"
   | "ApplyMovement";
 
-const SystemFactory = System<GameEventMap, SystemTags>();
+const SystemFactory = System<SystemTags, GameEventMap>();
 
 export class RenderSystem extends SystemFactory<{}>("Render", {
   execute: ({ world }) => {

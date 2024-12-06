@@ -35,7 +35,7 @@ app.stage.addChild(grid);
 
 const inputManager = new InputManager();
 
-const world = ECS.create<GameEventMap, SystemTags>(
+const world = ECS.create<SystemTags, GameEventMap>(
   ({ addSystem, createEntity, addComponent }) => {
     addSystem(
       new ApplyMovementSystem(),

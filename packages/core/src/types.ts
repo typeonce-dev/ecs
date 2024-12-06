@@ -33,91 +33,91 @@ export type EventMap = {
   [K: symbol]: any;
 };
 
-type EventData<T extends EventMap, E extends EventType<T>> = T[E];
-export type EventType<T extends EventMap> = keyof T & symbol;
+type EventData<E extends EventMap, ET extends EventType<E>> = E[ET];
+export type EventType<E extends EventMap> = keyof E & symbol;
 
-export interface Event<T extends EventMap, E extends EventType<T>> {
-  type: E;
-  data: EventData<T, E>;
+export interface Event<E extends EventMap, ET extends EventType<E>> {
+  type: ET;
+  data: EventData<E, ET>;
 }
 
-type EventEmit<T extends EventMap> = <E extends EventType<T>>(
-  event: Event<T, E>
+type EventEmit<E extends EventMap> = <ET extends EventType<E>>(
+  event: Event<E, ET>
 ) => void;
 
-type EventPoll<T extends EventMap> = <E extends EventType<T>>(
-  eventType: E
-) => Event<T, E>[];
+type EventPoll<E extends EventMap> = <ET extends EventType<E>>(
+  eventType: ET
+) => Event<E, ET>[];
 
-type GetComponentRequired<T extends EventMap, Tag extends string> = (
-  world: World<T, Tag>
+type GetComponentRequired<Tag extends string, E extends EventMap> = (
+  world: World<Tag, E>
 ) => <M extends ComponentClassMap>(
   componentMap: M
 ) => (entityId: EntityId) => { entityId: EntityId } & ComponentInstanceMap<M>;
 
-type GetComponent<T extends EventMap, Tag extends string> = (
-  world: World<T, Tag>
+type GetComponent<Tag extends string, E extends EventMap> = (
+  world: World<Tag, E>
 ) => <M extends ComponentClassMap>(
   componentMap: M
 ) => (
   entityId: EntityId
 ) => ({ entityId: EntityId } & ComponentInstanceMap<M>) | undefined;
 
-type AddComponent<T extends EventMap, Tag extends string> = (
-  world: World<T, Tag>
+type AddComponent<Tag extends string, E extends EventMap> = (
+  world: World<Tag, E>
 ) => <T extends ComponentType>(
   entityId: EntityId,
   ...components: NoInfer<T>[]
 ) => void;
 
-type RemoveComponent<T extends EventMap, Tag extends string> = (
-  world: World<T, Tag>
+type RemoveComponent<Tag extends string, E extends EventMap> = (
+  world: World<Tag, E>
 ) => <T extends ComponentType>(
   entityId: EntityId,
   componentClass: ComponentClass<T>
 ) => void;
 
-type AddSystem<T extends EventMap, Tag extends string> = (
-  world: World<T, Tag>
-) => (...systems: SystemType<T, Tag, any>[]) => void;
+type AddSystem<Tag extends string, E extends EventMap> = (
+  world: World<Tag, E>
+) => (...systems: SystemType<Tag, E, any>[]) => void;
 
-export type InitFunctions<T extends EventMap, Tag extends string> = {
-  addComponent: ReturnType<AddComponent<T, Tag>>;
+export type InitFunctions<Tag extends string, E extends EventMap> = {
+  addComponent: ReturnType<AddComponent<Tag, E>>;
   createEntity: () => EntityId;
-  addSystem: ReturnType<AddSystem<T, Tag>>;
+  addSystem: ReturnType<AddSystem<Tag, E>>;
 };
 
-type SystemFunctions<T extends EventMap, Tag extends string> = InitFunctions<
-  T,
-  Tag
+type SystemFunctions<Tag extends string, E extends EventMap> = InitFunctions<
+  Tag,
+  E
 > & {
-  world: World<T>;
+  world: World<Tag, E>;
   deltaTime: number;
-  getComponentRequired: ReturnType<GetComponentRequired<T, Tag>>;
-  getComponent: ReturnType<GetComponent<T, Tag>>;
-  removeComponent: ReturnType<RemoveComponent<T, Tag>>;
+  getComponentRequired: ReturnType<GetComponentRequired<Tag, E>>;
+  getComponent: ReturnType<GetComponent<Tag, E>>;
+  removeComponent: ReturnType<RemoveComponent<Tag, E>>;
   destroyEntity: (entityId: EntityId) => void;
 };
 
 export type SystemExecute<
-  T extends EventMap,
-  Tag extends string
-> = InitFunctions<T, Tag> &
-  SystemFunctions<T, Tag> & { emit: EventEmit<T>; poll: EventPoll<T> };
+  Tag extends string,
+  E extends EventMap
+> = InitFunctions<Tag, E> &
+  SystemFunctions<Tag, E> & { emit: EventEmit<E>; poll: EventPoll<E> };
 
 export type SystemType<
-  T extends EventMap,
   Tag extends string,
-  Exe extends SystemExecute<T, Tag>
+  E extends EventMap,
+  Exe extends SystemExecute<Tag, E>
 > = {
   readonly _tag: Tag;
   readonly dependencies: Tag[];
   readonly execute: (_: Exe) => void;
 };
 
-export type AnySystem<T extends EventMap, Tag extends string> = SystemType<
-  T,
+export type AnySystem<Tag extends string, E extends EventMap> = SystemType<
   Tag,
+  E,
   any
 >;
 
@@ -127,11 +127,11 @@ export type Mutation =
   | { type: "destroyEntity"; entityId: EntityId }
   | { type: "setComponent"; entityId: EntityId; component: ComponentType };
 
-export interface World<E extends EventMap, Tag extends string = string> {
+export interface World<Tag extends string, E extends EventMap> {
   entities: Set<EntityId>;
   components: Map<EntityId, Map<string, ComponentType>>;
   nextEntityId: EntityId;
-  registry: SystemRegistry<E, Tag>;
+  registry: SystemRegistry<Tag, E>;
 
   update(deltaTime: number): void;
 }

@@ -31,7 +31,7 @@ describe("Component", () => {
 
 describe("Systems", () => {
   it("create systems from system factory", () => {
-    const SystemFactory = System<{}, "A">();
+    const SystemFactory = System<"A">();
 
     class A extends SystemFactory<{
       a: number;
@@ -52,7 +52,7 @@ describe("Systems", () => {
 
   it("can emit and access events", () => {
     const event = Symbol("event");
-    const SystemFactory = System<{ [event]: number }, "A" | "B">();
+    const SystemFactory = System<"A" | "B", { [event]: number }>();
 
     class A extends SystemFactory<{}>("A", {
       execute: ({ emit }) => {
@@ -82,7 +82,7 @@ describe("Systems", () => {
 
   it("mutations are applied at the end of the update", () => {
     class AsVoid extends Component("AsVoid")<{}> {}
-    const SystemFactory = System<{}, "A" | "B">();
+    const SystemFactory = System<"A" | "B">();
 
     class A extends SystemFactory<{}>("A", {
       execute: ({ addComponent, createEntity }) => {
@@ -108,7 +108,7 @@ describe("Systems", () => {
   });
 
   it("executes systems based on dependencies", () => {
-    const SystemFactory = System<{}, "A" | "B">();
+    const SystemFactory = System<"A" | "B">();
     let bExecuted = false;
 
     class A extends SystemFactory<{
@@ -142,7 +142,7 @@ describe("Systems", () => {
   });
 
   it("can handle multiple dependencies", () => {
-    const SystemFactory = System<{}, "A" | "B" | "C">();
+    const SystemFactory = System<"A" | "B" | "C">();
     let bExecuted = false;
     let cExecuted = false;
 
@@ -202,7 +202,7 @@ describe("Queries", () => {
 
     const testQuery = query({ position: Position, speed: Speed });
 
-    const SystemFactory = System<{}, "A">();
+    const SystemFactory = System<"A">();
 
     class A extends SystemFactory<{}>("A", {
       execute: () => {
@@ -240,7 +240,7 @@ describe("Queries", () => {
 
     const testQuery = query({ speed: Speed }, [Position]);
 
-    const SystemFactory = System<{}, "A">();
+    const SystemFactory = System<"A">();
 
     class A extends SystemFactory<{}>("A", {
       execute: () => {

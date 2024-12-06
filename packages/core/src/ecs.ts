@@ -41,13 +41,13 @@ export const Component = <Tag extends string>(
   return Base as any;
 };
 
-export const System: <T extends EventMap, Tag extends string>() => <
+export const System: <Tags extends string, E extends EventMap = {}>() => <
   A extends Record<string, any> = {}
 >(
-  tag: Tag,
+  tag: Tags,
   params: {
-    execute: (_: SystemExecute<T, Tag> & { input: A }) => void;
-    dependencies?: Tag[];
+    execute: (_: SystemExecute<Tags, E> & { input: A }) => void;
+    dependencies?: Tags[];
   }
 ) => {
   new (
@@ -57,9 +57,9 @@ export const System: <T extends EventMap, Tag extends string>() => <
           readonly [P in keyof A as P extends "_tag" ? never : P]: A[P];
         }
   ): {
-    readonly _tag: Tag;
-    readonly execute: (_: SystemExecute<T, Tag> & { input: A }) => void;
-    readonly dependencies: Tag[];
+    readonly _tag: Tags;
+    readonly execute: (_: SystemExecute<Tags, E> & { input: A }) => void;
+    readonly dependencies: Tags[];
   } & A;
 } =
   () =>
@@ -91,7 +91,7 @@ export const System: <T extends EventMap, Tag extends string>() => <
   };
 
 const getComponentRequired =
-  <T extends EventMap, Tag extends string>(world: World<T, Tag>) =>
+  <Tag extends string, E extends EventMap>(world: World<Tag, E>) =>
   <M extends ComponentClassMap>(componentMap: M) =>
   (entityId: EntityId): { entityId: EntityId } & ComponentInstanceMap<M> => {
     const entityComponents = world.components.get(entityId);
@@ -127,7 +127,7 @@ const getComponentRequired =
   };
 
 const getComponent =
-  <T extends EventMap, Tag extends string>(world: World<T, Tag>) =>
+  <Tag extends string, E extends EventMap>(world: World<Tag, E>) =>
   <M extends ComponentClassMap>(componentMap: M) =>
   (
     entityId: EntityId
@@ -140,8 +140,8 @@ const getComponent =
   };
 
 const addComponent =
-  <T extends EventMap, Tag extends string>(
-    world: World<T, Tag>,
+  <Tag extends string, E extends EventMap>(
+    world: World<Tag, E>,
     mutations: Mutation[]
   ) =>
   <T extends ComponentType>(
@@ -159,8 +159,8 @@ const addComponent =
   };
 
 const removeComponent =
-  <T extends EventMap, Tag extends string>(
-    world: World<T, Tag>,
+  <Tag extends string, E extends EventMap>(
+    world: World<Tag, E>,
     mutations: Mutation[]
   ) =>
   <T extends ComponentType>(
@@ -178,7 +178,7 @@ const removeComponent =
   };
 
 const createEntity =
-  <T extends EventMap, Tag extends string>(world: World<T, Tag>) =>
+  <Tag extends string, E extends EventMap>(world: World<Tag, E>) =>
   (): EntityId => {
     const entityId = world.nextEntityId++ as EntityId;
     world.entities.add(entityId);
@@ -186,8 +186,8 @@ const createEntity =
   };
 
 const destroyEntity =
-  <T extends EventMap, Tag extends string>(
-    world: World<T, Tag>,
+  <Tag extends string, E extends EventMap>(
+    world: World<Tag, E>,
     mutations: Mutation[]
   ) =>
   (entityId: EntityId): void => {
@@ -198,22 +198,22 @@ const destroyEntity =
   };
 
 const emit =
-  <T extends EventMap>(events: Event<T, EventType<T>>[]) =>
-  <E extends EventType<T>>(event: Event<T, E>): void => {
+  <E extends EventMap>(events: Event<E, EventType<E>>[]) =>
+  <ET extends EventType<E>>(event: Event<E, ET>): void => {
     events.push(event);
   };
 
 const poll =
-  <T extends EventMap>(events: Event<T, EventType<T>>[]) =>
-  <E extends EventType<T>>(eventType: E): Event<T, E>[] => {
+  <E extends EventMap>(events: Event<E, EventType<E>>[]) =>
+  <ET extends EventType<E>>(eventType: ET): Event<E, ET>[] => {
     return events.filter(
-      (event): event is Event<T, E> => event.type === eventType
+      (event): event is Event<E, ET> => event.type === eventType
     );
   };
 
 const addSystem =
-  <T extends EventMap, Tag extends string>(world: World<T, Tag>) =>
-  (...systems: AnySystem<T, Tag>[]): void => {
+  <Tag extends string, E extends EventMap>(world: World<Tag, E>) =>
+  (...systems: AnySystem<Tag, E>[]): void => {
     for (const system of systems) {
       world.registry.registerSystem(system);
     }
@@ -224,8 +224,8 @@ export const query =
     componentMap: M,
     notComponents?: ComponentClass<NoInfer<T>>[]
   ) =>
-  <T extends EventMap, Tag extends string>(
-    world: World<T, Tag>
+  <Tag extends string, E extends EventMap>(
+    world: World<Tag, E>
   ): ({ entityId: EntityId } & ComponentInstanceMap<M>)[] => {
     const result: Map<
       EntityId,
@@ -260,8 +260,8 @@ export const query =
 
 export const queryRequired =
   <M extends ComponentClassMap>(componentMap: M) =>
-  <T extends EventMap, Tag extends string>(
-    world: World<T, Tag>
+  <Tag extends string, E extends EventMap>(
+    world: World<Tag, E>
   ): [
     { entityId: EntityId } & ComponentInstanceMap<M>,
     ...({ entityId: EntityId } & ComponentInstanceMap<M>)[]
@@ -282,13 +282,13 @@ export const queryRequired =
     ];
   };
 
-export class ECS<E extends EventMap, Tag extends string = string>
-  implements World<E, Tag>
+export class ECS<Tags extends string = string, E extends EventMap = {}>
+  implements World<Tags, E>
 {
-  static create<T extends EventMap, Tag extends string = string>(
-    init: (_: InitFunctions<T, Tag>) => void
-  ): World<T> {
-    const world = new ECS<T>();
+  static create<Tags extends string, E extends EventMap = {}>(
+    init: (_: InitFunctions<Tags, E>) => void
+  ): World<Tags, E> {
+    const world = new ECS<Tags, E>();
     const mutations: Mutation[] = [];
     init({
       addComponent: addComponent(world, mutations),
@@ -299,7 +299,7 @@ export class ECS<E extends EventMap, Tag extends string = string>
     return world;
   }
 
-  registry: SystemRegistry<E, Tag> = new SystemRegistry();
+  registry: SystemRegistry<Tags, E> = new SystemRegistry();
   entities: Set<EntityId> = new Set();
   components: Map<EntityId, Map<string, ComponentType>> = new Map();
   nextEntityId: EntityId = 0 as EntityId;

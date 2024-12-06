@@ -1,23 +1,20 @@
 import type { AnySystem, EventMap, SystemExecute } from "./types";
 
-export class SystemRegistry<
-  T extends EventMap = {},
-  Tag extends string = string
-> {
-  private systems: Map<Tag, AnySystem<T, Tag>> = new Map();
-  private dependencies: Map<Tag, Set<Tag>> = new Map();
+export class SystemRegistry<Tags extends string, E extends EventMap = {}> {
+  private systems: Map<Tags, AnySystem<Tags, E>> = new Map();
+  private dependencies: Map<Tags, Set<Tags>> = new Map();
 
-  registerSystem(system: AnySystem<T, Tag>) {
+  registerSystem(system: AnySystem<Tags, E>) {
     this.systems.set(system._tag, system);
     this.dependencies.set(system._tag, new Set(system.dependencies));
   }
 
   private resolveExecutionOrder() {
-    const order: Tag[] = [];
-    const visited = new Set<Tag>();
-    const stack = new Set<Tag>();
+    const order: Tags[] = [];
+    const visited = new Set<Tags>();
+    const stack = new Set<Tags>();
 
-    const visit = (name: Tag) => {
+    const visit = (name: Tags) => {
       if (stack.has(name)) {
         throw new Error(`Circular dependency detected: ${name}`);
       }
@@ -46,7 +43,7 @@ export class SystemRegistry<
     return order;
   }
 
-  execute(params: SystemExecute<T, Tag>) {
+  execute(params: SystemExecute<Tags, E>) {
     const sortedSystemNames = this.resolveExecutionOrder();
     for (const name of sortedSystemNames) {
       const system = this.systems.get(name);

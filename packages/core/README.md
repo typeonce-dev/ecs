@@ -1,5 +1,170 @@
-# `ecs`
+# `@typeonce/ecs`
 An **Entity Component System** (ECS) implementation in TypeScript, extensible, working with any renderer, type safe and composable 🕹️
+
+## Getting started
+The package is available on [npm](https://www.npmjs.com/package/@typeonce/ecs):
+
+```bash
+pnpm add @typeonce/ecs
+```
+
+Creating a new ECS game uses the `ECS.create` function:
+
+```ts
+import { ECS } from "@typeonce/ecs";
+
+const world = ECS.create(() => {
+  // Initialize the game
+});
+```
+
+> Every call to `ECS.create` creates a new world. You can use multiple worlds for different scenes.
+
+The function inside `ECS.create` is where you initialize the game:
+- Add systems
+- Create initial entities (player, tiles, etc.)
+- Add components to entities
+
+```ts
+import { ECS } from "@typeonce/ecs";
+
+const world = ECS.create(({ addComponent, addSystem, createEntity }) => {
+  // Add systems (accepts multiple systems at once)
+  addSystem(new MovementSystem(), new RenderSystem());
+
+  // Create an entity, returns its `EntityId`
+  const entityId = createEntity();
+
+  // Add a component to the entity (accepts multiple components at once)
+  addComponent(entityId, new Player(), new Position({ x: 0, y: 0 }));
+});
+```
+
+Components are defined using the `Component` function:
+
+```ts
+import { Component } from "@typeonce/ecs";
+
+export class Position extends Component("Position")<{
+  x: number;
+  y: number;
+}> {}
+
+export class Player extends Component("Player")<{}> {}
+```
+
+Systems use the `System` function to define a system's factory:
+
+```ts
+import { System } from "@typeonce/ecs";
+
+// Derive a system factory from the `System` function
+const SystemFactory = System<"Movement" | "Render">();
+
+// Use the factory to create a system
+export class RenderSystem extends SystemFactory<{}>("Render", {
+  execute: ({ world }) => {
+    // Implement the system logic
+  },
+}) {}
+
+// Use the factory to create a system
+export class MovementSystem extends SystemFactory<{}>("Movement", {
+  execute: ({ world }) => {
+    // Implement the system logic
+  },
+}) {}
+```
+
+The `execute` function is where you implement the system logic. It provides a set of utility functions to manage entities, components, and systems in the game:
+
+```ts
+export class FoodSpawnSystem extends SystemFactory<{
+  width: number;
+  height: number;
+}>("FoodSpawn", {
+  // Execute this system after the `Collision` system
+  dependencies: ["Collision"],
+
+  execute: ({
+    poll,
+    destroyEntity,
+    createEntity,
+    addComponent,
+
+    // 👇 Extract the `width` and `height` from the input
+    input: { width, height },
+  }) => {
+    // Listen for the `FoodEaten` event
+    poll(FoodEatenEvent).forEach((event) => {
+      // 👇 Destroy the entity that was eaten
+      destroyEntity(event.data.entityId);
+
+      // 👇 Spawn a new food entity
+      addComponent(
+        createEntity(),
+        new Position({
+          x: Math.random() * width,
+          y: Math.random() * height,
+        }),
+        new Size({ size: 10 }),
+        new Food({ value: 10 }),
+        new Collidable({ entity: "food" }),
+        new Renderable({ color: "#D80032" }),
+      );
+    });
+  },
+}) {}
+```
+
+The library does nothing more than organizing the logic of your game into entity, components and systems.
+
+The created `ECS` instance provides an `update` function that you can call each frame to update the game, using whatever other library or framework you prefer:
+
+> Calling `update` will execute all the systems in the world one time. You are expected to call `update` once per frame (or whatever other frequency you prefer).
+
+```ts
+// Create a world for a snake game (add systems, create entities, etc.)
+const world = ECS.create<SystemTags, GameEventMap>(
+  ({ addComponent, createEntity, addSystem }) => {
+    addComponent(
+      createEntity(),
+      new Size({ size: 10 }),
+      new Position({
+        x: ctx.canvas.width / 2,
+        y: ctx.canvas.height / 2,
+      }),
+      new SnakeHead(),
+      new Collidable({ entity: "snake" }),
+      new Renderable({ color: "#2B2D42" }),
+      new Velocity({ dx: 0, dy: -1, speed: 0.1 }),
+      new FollowTarget({ x: 0, y: 0 })
+    );
+
+    addComponent(
+      createEntity(),
+      ...spawnFood(new Position({ x: 200, y: 100 }))
+    );
+
+    addSystem(
+      new SnakeGrowSystem(),
+      new CollisionSystem(),
+      new MovementSystem(),
+      new FollowSystem(),
+      new TargetSystem({ followDelayCycles: undefined }),
+      new RenderSystem({ ctx }),
+      new SnakeControllerSystem({ inputManager }),
+      new FoodSpawnSystem({
+        width: ctx.canvas.width,
+        height: ctx.canvas.height,
+      })
+    );
+  }
+);
+
+// Apply any rendering logic by executing the `update` function from `ECS`
+renderer(world.update);
+```
 
 ***
 

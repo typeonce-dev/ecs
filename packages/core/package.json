@@ -1,6 +1,6 @@
 {
   "name": "@typeonce/ecs",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "author": "Sandro Maglione <sandro@sandromaglione.com>",
   "description": "Entity Component System (ECS) implementation in TypeScript, extensible, working with any renderer, type safe and composable",
   "license": "MIT",

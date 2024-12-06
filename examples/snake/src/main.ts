@@ -1,4 +1,4 @@
-import { ECS, update } from "@typeonce/ecs";
+import { ECS } from "@typeonce/ecs";
 import {
   Collidable,
   FollowTarget,
@@ -11,14 +11,17 @@ import {
 import type { GameEventMap } from "./events";
 import { InputManager } from "./input-manager";
 import renderer from "./loop";
-import { CollisionSystem } from "./systems/collision";
-import { FollowSystem } from "./systems/follow";
-import { FoodSpawnSystem } from "./systems/food-spawn";
-import { MovementSystem } from "./systems/movement";
-import { RenderSystem } from "./systems/render";
-import { SnakeControllerSystem } from "./systems/snake-controller";
-import { SnakeGrowSystem } from "./systems/snake-grow";
-import { TargetSystem } from "./systems/target";
+import {
+  CollisionSystem,
+  FollowSystem,
+  FoodSpawnSystem,
+  MovementSystem,
+  RenderSystem,
+  SnakeControllerSystem,
+  SnakeGrowSystem,
+  TargetSystem,
+  type SystemTags,
+} from "./systems";
 import { spawnFood } from "./utils";
 
 const canvas = document.getElementById("canvas");
@@ -27,13 +30,8 @@ if (canvas && canvas instanceof HTMLCanvasElement) {
 
   if (ctx) {
     const inputManager = new InputManager();
-    const world = ECS.create<GameEventMap>(
-      ({
-        addComponent,
-        createEntity,
-        registerSystemEvent,
-        registerSystemUpdate,
-      }) => {
+    const world = ECS.create<SystemTags, GameEventMap>(
+      ({ addComponent, createEntity, addSystem }) => {
         addComponent(
           createEntity(),
           new Size({ size: 10 }),
@@ -53,18 +51,15 @@ if (canvas && canvas instanceof HTMLCanvasElement) {
           ...spawnFood(new Position({ x: 200, y: 100 }))
         );
 
-        registerSystemUpdate(
-          CollisionSystem,
-          MovementSystem,
-          FollowSystem,
-          TargetSystem(),
-          RenderSystem(ctx),
-          SnakeControllerSystem(inputManager)
-        );
-
-        registerSystemEvent(
-          SnakeGrowSystem,
-          FoodSpawnSystem({
+        addSystem(
+          new SnakeGrowSystem(),
+          new CollisionSystem(),
+          new MovementSystem(),
+          new FollowSystem(),
+          new TargetSystem({ followDelayCycles: undefined }),
+          new RenderSystem({ ctx }),
+          new SnakeControllerSystem({ inputManager }),
+          new FoodSpawnSystem({
             width: ctx.canvas.width,
             height: ctx.canvas.height,
           })
@@ -72,7 +67,7 @@ if (canvas && canvas instanceof HTMLCanvasElement) {
       }
     );
 
-    renderer(update(world));
+    renderer(world.update);
   } else {
     console.error("Canvas context not found");
   }

@@ -124,8 +124,7 @@ export type AnySystem<Tag extends string, E extends EventMap> = SystemType<
 export type Mutation =
   | { type: "addComponent"; entityId: EntityId; component: ComponentType }
   | { type: "removeComponent"; entityId: EntityId; component: ComponentType }
-  | { type: "destroyEntity"; entityId: EntityId }
-  | { type: "setComponent"; entityId: EntityId; component: ComponentType };
+  | { type: "destroyEntity"; entityId: EntityId };
 
 export interface World<Tag extends string, E extends EventMap> {
   entities: Set<EntityId>;

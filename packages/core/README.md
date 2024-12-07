@@ -7,6 +7,150 @@ It is designed to provide a **solid and type-safe ECS implementation** to keep t
 
 How you choose to render, apply physics, manage input, etc. is up to you, `@typeonce/ecs` **doesn't impose any constraints**.
 
+### Quick start
+Install the package:
+
+```bash
+pnpm add @typeonce/ecs
+```
+
+Define your components (e.g. `components.ts`):
+
+```ts
+import { Component } from "@typeonce/ecs";
+
+export class Position extends Component<"Position"><{
+  x: number;
+  y: number;
+}> {}
+
+export class Velocity extends Component<"Velocity"><{
+  dx: number;
+  dy: number;
+}> {}
+```
+
+Define your systems (e.g. `systems.ts`):
+
+```ts
+import { System } from "@typeonce/ecs";
+
+export type SystemTags = "Movement";
+const SystemFactory = System<SystemTags>();
+
+export class MovementSystem extends SystemFactory<{}>("Movement", {
+  execute: ({ world }) => {
+    // Implement the system logic
+  },
+}) {}
+```
+
+Write the system logic by querying entities that have a set of components attached:
+
+```ts
+import { query, System } from "@typeonce/ecs";
+import { Position, Velocity } from "./components";
+
+const moving = query({ position: Position, velocity: Velocity });
+
+export type SystemTags = "Movement";
+const SystemFactory = System<SystemTags>();
+
+export class MovementSystem extends SystemFactory<{}>("Movement", {
+  execute: ({ world }) => {
+    moving(world).forEach(({ position, velocity }) => {
+      // Do something with each entity and its `position` and `velocity` components
+    });
+  },
+}) {}
+```
+
+Update the components to apply changes to the game (e.g. movement):
+
+```ts
+import { query, System } from "@typeonce/ecs";
+import { Position, Velocity } from "./components";
+
+const moving = query({ position: Position, velocity: Velocity });
+
+export type SystemTags = "Movement";
+const SystemFactory = System<SystemTags>();
+
+export class MovementSystem extends SystemFactory<{}>("Movement", {
+  execute: ({ world, deltaTime }) => {
+    moving(world).forEach(({ position, velocity }) => {
+      position.x += velocity.dx * deltaTime;
+      position.y += velocity.dy * deltaTime;
+    });
+  },
+}) {}
+```
+
+Create an instance of the game using `ECS.create`:  
+
+```ts
+import { ECS } from "@typeonce/ecs";
+import { type SystemTags } from "./systems";
+
+const world = ECS.create<SystemTags>(() => {
+  // Initialize the game
+});
+```
+
+Initialize entities, components and systems inside `ECS.create`:
+
+```ts
+import { ECS } from "@typeonce/ecs";
+import { MovementSystem, RenderSystem, type SystemTags } from "./systems";
+import { Position, Velocity } from "./components";
+
+const world = ECS.create<SystemTags>(
+  ({ addComponent, createEntity, addSystem }) => {
+    addComponent(
+      createEntity(),
+      new Position({ x: 0, y: 0 }),
+      new Velocity({ dx: 0, dy: 0 })
+    );
+
+    addSystem(
+      new MovementSystem(),
+      new RenderSystem()
+    );
+  }
+);
+```
+
+Run the game loop by executing the `update` function from `ECS`:
+
+> You can use `requestAnimationFrame`, `setInterval`, or any other renderer to run the game loop (libraries or frameworks like `pixi.js`, Phaser, etc.)
+
+```ts
+import { ECS } from "@typeonce/ecs";
+import { MovementSystem, RenderSystem, type SystemTags } from "./systems";
+import { Position, Velocity } from "./components";
+
+const world = ECS.create<SystemTags>(
+  ({ addComponent, createEntity, addSystem }) => {
+    addComponent(
+      createEntity(),
+      new Position({ x: 0, y: 0 }),
+      new Velocity({ dx: 0, dy: 0 })
+    );
+
+    addSystem(
+      new MovementSystem(),
+      new RenderSystem()
+    );
+  }
+);
+
+requestAnimationFrame((deltaTime) => {
+  world.update(deltaTime);
+});
+```
+
+***
+
 ## Getting started
 The package is available on [npm](https://www.npmjs.com/package/@typeonce/ecs):
 
@@ -145,11 +289,6 @@ const world = ECS.create<SystemTags, GameEventMap>(
       new FollowTarget({ x: 0, y: 0 })
     );
 
-    addComponent(
-      createEntity(),
-      ...spawnFood(new Position({ x: 200, y: 100 }))
-    );
-
     addSystem(
       new SnakeGrowSystem(),
       new CollisionSystem(),
@@ -168,6 +307,99 @@ const world = ECS.create<SystemTags, GameEventMap>(
 
 // Apply any rendering logic by executing the `update` function from `ECS`
 renderer((deltaTime) => world.update(deltaTime));
+```
+
+Another example is using [`pixi.js`](https://pixijs.com/) to render the game by executing the `update` function inside `app.ticker.add`:
+
+```ts
+import * as PIXI from "pixi.js";
+
+const app = new PIXI.Application();
+await app.init({ width: 800, height: 600 });
+document.body.appendChild(app.canvas);
+
+// Create `world` and initialize game
+
+app.ticker.add(({ deltaTime }) => {
+  world.update(deltaTime);
+});
+```
+
+### Extracting entities
+In ECS you want to query all the entities that have (or not have) a specific set of components attached.
+
+For that you can use the `query` and `queryRequired` functions.
+
+> `queryRequired` requires **at least one entity** to exist in the game, otherwise executing the query will throw.
+
+A query is defined as a map of components. It can be defined *outside a system* and reused between them.
+
+When executed it returns an array of entities that have the defined components attached (**type-safe based on the keys of the map** inside `query`):
+
+```ts
+// 👇 Query all the entities with `Renderable`, `Position` and `Size` components
+const renderPosition = query({
+  renderable: Renderable,
+  position: Position,
+  size: Size,
+});
+
+export class RenderSystem extends SystemFactory<{
+  ctx: CanvasRenderingContext2D;
+}>("Render", {
+  execute: ({ world, input: { ctx } }) => {
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+    // 👇 Extract the entities from the `world` using the query (type-safe)
+    renderPosition(world).forEach(({ renderable, position, size }) => {
+      ctx.fillStyle = renderable.color;
+      ctx.beginPath();
+      ctx.arc(position.x, position.y, size.size, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  },
+}) {}
+```
+
+`queryRequired` can be used to extract a single entity:
+
+```ts
+const requiredHead = queryRequired({
+  snake: SnakeHead,
+  velocity: Velocity,
+  position: Position,
+  size: Size,
+});
+
+export class SnakeControllerSystem extends SystemFactory<{
+  inputManager: InputManager;
+}>("SnakeController", {
+  execute: ({ world, input: { inputManager } }) => {
+    // 👇 At least one entity is guaranteed to exist in the game (`[0]` is always defined)
+    const snakeHead = requiredHead(world)[0];
+
+    if (inputManager.isKeyPressed("ArrowUp")) {
+      snakeHead.velocity.dx = 0;
+      snakeHead.velocity.dy = -1;
+    } else if (inputManager.isKeyPressed("ArrowDown")) {
+      snakeHead.velocity.dx = 0;
+      snakeHead.velocity.dy = 1;
+    } else if (inputManager.isKeyPressed("ArrowLeft")) {
+      snakeHead.velocity.dx = -1;
+      snakeHead.velocity.dy = 0;
+    } else if (inputManager.isKeyPressed("ArrowRight")) {
+      snakeHead.velocity.dx = 1;
+      snakeHead.velocity.dy = 0;
+    }
+  },
+}) {}
+```
+
+Both `query` and `queryRequired` accept a second optional parameter which is a list of the components that should be **excluded from the query**:
+
+```ts
+// 👇 Query all the entities with `Position` and `Velocity` components, and don't have `Collidable`
+const moving = query({ position: Position, velocity: Velocity }, [Collidable]);
 ```
 
 ### Communication between systems

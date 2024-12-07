@@ -1,4 +1,4 @@
-import { ECS, update } from "@typeonce/ecs";
+import { ECS } from "@typeonce/ecs";
 import Matter, { Render } from "matter-js";
 import * as PIXI from "pixi.js";
 import { Collider, Player, Position, Sprite, Velocity } from "./components";
@@ -20,6 +20,7 @@ import {
   PlayerInputSystem,
   RenderSystem,
   ShootingSystem,
+  SystemTags,
 } from "./systems";
 
 const app = new PIXI.Application();
@@ -47,26 +48,19 @@ const render = Render.create({
 
 Render.run(render);
 
-const world = ECS.create<GameEventMap>(
-  ({
-    registerSystemUpdate,
-    registerSystemEvent,
-    createEntity,
-    addComponent,
-  }) => {
-    registerSystemUpdate(
-      MovementSystem,
-      RenderSystem,
-      PhysicsSystem(engine),
-      PlayerInputSystem(inputManager),
-      // TODO: it works even when it's not called (not `SystemUpdate`)
-      ShootingSystem({ app, engine, inputManager })(),
-      EnemyDescentSystem()(),
-      EnemySpawnSystem({ app, engine })(),
-      EnemyBulletCollisionSystem
+const world = ECS.create<SystemTags, GameEventMap>(
+  ({ addSystem, createEntity, addComponent }) => {
+    addSystem(
+      new EnemyBulletCollisionSystem(),
+      new EnemyDescentSystem(),
+      new EnemyDestroySystem({ engine }),
+      new EnemySpawnSystem({ app, engine }),
+      new MovementSystem(),
+      new PhysicsSystem({ engine }),
+      new PlayerInputSystem({ inputManager }),
+      new RenderSystem(),
+      new ShootingSystem({ app, engine, inputManager })
     );
-
-    registerSystemEvent(EnemyDestroySystem(engine));
 
     const playerId = createEntity();
     const playerSprite = new PIXI.Sprite(PIXI.Texture.WHITE);
@@ -97,5 +91,5 @@ const world = ECS.create<GameEventMap>(
 );
 
 app.ticker.add(({ deltaTime }) => {
-  update(world)(deltaTime);
+  world.update(deltaTime);
 });

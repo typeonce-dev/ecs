@@ -47,12 +47,16 @@ export interface WriteQuery<Component extends ComponentInstance> {
   };
 }
 
-export interface QueryEffect<out A, out Q = never, out R = never> {
-  readonly a: A;
-  readonly q: Q;
-  readonly r: R;
+export interface QueryEffect<
+  out Event,
+  out Query = never,
+  out Dependencies = never
+> {
+  readonly a: Event;
+  readonly q: Query;
+  readonly r: Dependencies;
 
-  [Symbol.iterator](): QueryGenerator<QueryEffect<A, never, R>>;
+  [Symbol.iterator](): QueryGenerator<QueryEffect<Event, Query, Dependencies>>;
 }
 
 export namespace QueryEffect {
@@ -83,10 +87,17 @@ export interface QueryGenerator<T extends QueryEffect.Any> {
   ): globalThis.IteratorResult<T, QueryEffect.Success<T>>;
 }
 
-export const gen = <Effect extends QueryEffect.Any, TReturn>(
-  _f: () => globalThis.Generator<Effect, TReturn, never>
-): QueryEffect<
-  TReturn,
+interface Tag<Id, Event, Query, R> extends QueryEffect<Event, never, Id | R> {
+  [Symbol.iterator](): QueryGenerator<Tag<Id, Event, Query, R>>;
+}
+
+export const Tag: <const Id extends string>(
+  id: Id
+) => <Params, Event, Effect extends QueryEffect.Any>(
+  gen: (params: Params) => globalThis.Generator<Effect, Event, never>
+) => Tag<
+  Id,
+  Event,
   [Effect] extends [never]
     ? never
     : [Effect] extends [QueryEffect<infer _A, infer Q, infer _R>]
@@ -97,10 +108,4 @@ export const gen = <Effect extends QueryEffect.Any, TReturn>(
     : [Effect] extends [QueryEffect<infer _A, infer _Q, infer R>]
     ? R
     : never
-> => void 0 as any;
-
-export const Tag: <const Id extends string>(
-  id: Id
-) => <Params, Event, Effect extends QueryEffect.Any>(
-  gen: (params: Params) => globalThis.Generator<Effect, Event, never>
-) => QueryEffect<Event, never, Id> = void 0 as any;
+> = void 0 as any;

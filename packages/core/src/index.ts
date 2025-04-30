@@ -18,16 +18,19 @@ const System1 = Query.Tag("System1")(function* (params: { source: string }) {
   return { num: 1 as const, source: params.source };
 });
 
-export const system1 = Query.gen(function* () {
+const System2 = Query.Tag("System2")(function* (params: { source: string }) {
   const dep = yield* System1;
   const num = yield* readQuery;
   for (const { entityId: _, size } of num) {
     const _addedNum = yield* writeQuery.set(new Size({ size: size.size + 1 }));
   }
 
-  return "some";
+  return "some" as const;
 });
 
-export const system2 = Query.gen(function* () {
-  const dep = yield* system1;
+const System3 = Query.Tag("System3")(function* (params: { source: string }) {
+  const dep1 = yield* System1;
+  const dep2 = yield* System2;
+  const num = yield* readQuery;
+  return 10 as const;
 });

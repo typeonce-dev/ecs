@@ -16,31 +16,6 @@ import type {
   World,
 } from "./types";
 
-export const Component = <Tag extends string>(
-  tag: Tag
-): {
-  new <A extends Record<string, any> = {}>(
-    args: Equals<A, {}> extends true
-      ? void
-      : {
-          readonly [P in keyof A as P extends "_tag" ? never : P]: A[P];
-        }
-  ): { readonly _tag: Tag } & A;
-  readonly _tag: Tag;
-} => {
-  class Base {
-    readonly _tag = tag;
-    constructor(args: any) {
-      if (args) {
-        Object.assign(this, args);
-      }
-    }
-  }
-  (Base.prototype as any).name = tag;
-  (Base as any)._tag = tag;
-  return Base as any;
-};
-
 export const System: <Tags extends string, E extends EventMap = {}>() => <
   A extends Record<string, any> = {}
 >(

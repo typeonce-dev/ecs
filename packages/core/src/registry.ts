@@ -1,20 +1,22 @@
-import type { AnySystem, EventMap, SystemExecute } from "./types";
+import * as Query from "./query.js";
 
-export class SystemRegistry<Tags extends string, E extends EventMap = {}> {
-  private systems: Map<Tags, AnySystem<Tags, E>> = new Map();
-  private dependencies: Map<Tags, Set<Tags>> = new Map();
+export class SystemRegistry {
+  private systems: Map<string, Query.TagInstance<string>> = new Map();
+  private dependencies: Map<string, Set<string>> = new Map();
 
-  registerSystem(system: AnySystem<Tags, E>) {
-    this.systems.set(system._tag, system);
-    this.dependencies.set(system._tag, new Set(system.dependencies));
+  registerSystem<System extends Query.Tag<string, any, any, any>>(
+    system: System
+  ) {
+    this.systems.set(system.key, system);
+    this.dependencies.set(system.key, new Set(system.key));
   }
 
   private resolveExecutionOrder() {
-    const order: Tags[] = [];
-    const visited = new Set<Tags>();
-    const stack = new Set<Tags>();
+    const order: string[] = [];
+    const visited = new Set<string>();
+    const stack = new Set<string>();
 
-    const visit = (name: Tags) => {
+    const visit = (name: string) => {
       if (stack.has(name)) {
         throw new Error(`Circular dependency detected: ${name}`);
       }
@@ -43,7 +45,7 @@ export class SystemRegistry<Tags extends string, E extends EventMap = {}> {
     return order;
   }
 
-  execute(params: SystemExecute<Tags, E>) {
+  execute(/** TODO */) {
     const sortedSystemNames = this.resolveExecutionOrder();
     for (const name of sortedSystemNames) {
       const system = this.systems.get(name);

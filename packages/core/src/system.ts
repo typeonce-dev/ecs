@@ -1,40 +1,36 @@
-import { SingleShotGen } from "./gen.js";
-import * as Query from "./query.js";
+import * as Command from "./command.js";
+import type { NonEmptyArray } from "./types.js";
 
-export interface Tag<out Id, out Event> {
-  [Symbol.iterator](): Query.QueryGenerator<
-    Query.QueryEffect<Event, never, Id>
-  >;
+export const SystemTypeId = Symbol.for("ecs/System");
+
+export type SystemTypeId = typeof SystemTypeId;
+
+export interface System<Tag extends string> {
+  readonly [SystemTypeId]: SystemTypeId;
+  readonly _tag: Tag;
+  readonly commands: Command.Command[];
+  readonly run: (params: SystemParams) => void;
 }
 
-export interface TagClassShape<Id, Event> {
-  readonly Event: Event;
-  readonly Id: Id;
+export type SystemType = "Startup" | "Update" | "FixedUpdate";
+
+export namespace System {
+  export type Any = System<string>;
 }
 
-export interface TagClass<Self, Id extends string, Event>
-  extends Tag<Self, Event> {
-  new (_: never): TagClassShape<Id, Event>;
-  readonly key: Id;
+interface SystemParams {
+  queue: <T extends Command.Command>(
+    ...commands: NonEmptyArray<NoInfer<T>>
+  ) => void;
 }
 
-/** @internal */
-export const TagProto: any = {
-  [Symbol.iterator]() {
-    return new SingleShotGen(this);
-  },
-};
-
-/** @internal */
-export const internalTag =
-  <const Id extends string>(id: Id) =>
-  <Self, Event>(): TagClass<Self, Id, Event> => {
-    function TagClass() {}
-    Object.setPrototypeOf(TagClass, TagProto);
-    TagClass.key = id;
-    return TagClass as any;
+export const make =
+  <Tag extends string>(tag: Tag) =>
+  (run: (params: SystemParams) => void): System<Tag> => {
+    return {
+      [SystemTypeId]: SystemTypeId,
+      _tag: tag,
+      commands: [],
+      run,
+    };
   };
-
-export const Tag: <const Id extends string>(
-  id: Id
-) => <Self, Event>() => TagClass<Self, Id, Event> = internalTag;

@@ -1,4 +1,5 @@
 import { Component } from "./ecs.js";
+import * as internal from "./internal/query.js";
 import type {
   ComponentClass,
   ComponentClassMap,
@@ -52,9 +53,9 @@ export interface QueryEffect<
   out Query = never,
   out Dependencies = never
 > {
-  readonly a: Event;
-  readonly q: Query;
-  readonly r: Dependencies;
+  readonly event: Event;
+  readonly query: Query;
+  readonly dependencies: Dependencies;
 
   [Symbol.iterator](): QueryGenerator<QueryEffect<Event, Query, Dependencies>>;
 }
@@ -87,8 +88,18 @@ export interface QueryGenerator<T extends QueryEffect.Any> {
   ): globalThis.IteratorResult<T, QueryEffect.Success<T>>;
 }
 
-interface Tag<Id, Event, Query, R> extends QueryEffect<Event, never, Id | R> {
-  [Symbol.iterator](): QueryGenerator<Tag<Id, Event, Query, R>>;
+export interface TagInstance<Id, Params, Event> {
+  readonly key: Id;
+  readonly params: Params;
+  readonly execute: (params: Params) => Event;
+}
+
+export interface Tag<Id, Params, Event, Query, R>
+  extends QueryEffect<Event, never, Id | R> {
+  readonly _op: "Tag";
+  readonly make: (params: Params) => TagInstance<Id, Params, Event>;
+  readonly key: Id;
+  [Symbol.iterator](): QueryGenerator<Tag<Id, Params, Event, Query, R>>;
 }
 
 export const Tag: <const Id extends string>(
@@ -97,6 +108,7 @@ export const Tag: <const Id extends string>(
   gen: (params: Params) => globalThis.Generator<Effect, Event, never>
 ) => Tag<
   Id,
+  Params,
   Event,
   [Effect] extends [never]
     ? never
@@ -108,4 +120,4 @@ export const Tag: <const Id extends string>(
     : [Effect] extends [QueryEffect<infer _A, infer _Q, infer R>]
     ? R
     : never
-> = void 0 as any;
+> = internal.makeTag;

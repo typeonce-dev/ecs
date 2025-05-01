@@ -1,3 +1,9 @@
+import type {
+  ComponentClass,
+  ComponentClassMap,
+  ComponentInstanceMap,
+} from "./component";
+import type { EntityId } from "./entity";
 import type { SystemRegistry } from "./registry";
 
 export type Equals<X, Y> = (<T>() => T extends X ? 1 : 2) extends <
@@ -6,28 +12,7 @@ export type Equals<X, Y> = (<T>() => T extends X ? 1 : 2) extends <
   ? true
   : false;
 
-const EntityIdTypeId: unique symbol = Symbol.for("ecs/EntityId");
-
-export type EntityId = number & {
-  readonly [EntityIdTypeId]: {
-    readonly EntityId: "EntityId";
-  };
-};
-
-export interface ComponentType {
-  readonly _tag: string;
-}
-
-export interface ComponentClass<T extends ComponentType> {
-  new (...args: any[]): Readonly<T>;
-  readonly _tag: string;
-}
-
-export type ComponentClassMap = Record<string, ComponentClass<any>>;
-
-export type ComponentInstanceMap<T extends ComponentClassMap> = {
-  [K in keyof T]: InstanceType<T[K]>;
-};
+export type NonEmptyArray<A> = [A, ...Array<A>];
 
 export type EventMap = {
   [K: symbol]: any;

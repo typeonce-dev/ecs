@@ -7,9 +7,8 @@ describe("App", () => {
     class Size extends Component.Component("Size")<{ value: number }> {}
 
     const update = App.empty().pipe(
-      App.addSystem(
-        "Startup",
-        System.make("Setup")(({ queue }) => {
+      App.setupSystem(
+        System.make("Setup", ({ queue }) => {
           queue(
             Command.spawn(new Position({ x: 10 }), new Size({ value: 20 })),
             Command.spawn(new Position({ x: 10 }), new Size({ value: 20 }))

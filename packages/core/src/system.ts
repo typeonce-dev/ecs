@@ -25,13 +25,14 @@ interface SystemParams {
   ) => void;
 }
 
-export const make =
-  <Tag extends string>(tag: Tag) =>
-  (run: (params: SystemParams) => void): System<Tag> => {
-    return {
-      [SystemTypeId]: SystemTypeId,
-      _tag: tag,
-      commands: [],
-      run,
-    };
+export const make = <Tag extends string>(
+  tag: Tag,
+  run: (params: SystemParams) => void
+): System<Tag> => {
+  return {
+    [SystemTypeId]: SystemTypeId,
+    _tag: tag,
+    commands: [],
+    run,
   };
+};

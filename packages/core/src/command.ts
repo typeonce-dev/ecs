@@ -3,65 +3,74 @@ import type * as Resource from "./resource.js";
 import type * as System from "./system.js";
 import type { NonEmptyArray } from "./types.js";
 
-export const CommandTypeId = Symbol.for("ecs/Command");
-
-export type CommandTypeId = typeof CommandTypeId;
-
-export interface Command {
-  readonly [CommandTypeId]: CommandTypeId;
-  readonly _op:
-    | "SPAWN"
-    | "SPAWN_BATCH"
-    | "INSERT_RESOURCE"
-    | "REMOVE_RESOURCE"
-    | "REGISTER_SYSTEM"
-    | "UNREGISTER_SYSTEM"; // TODO: What about the command params?
-}
+export type Command =
+  | {
+      readonly _tag: "SPAWN";
+      readonly components: Array<Component.Component.Any>;
+    }
+  | {
+      readonly _tag: "SPAWN_BATCH";
+      readonly components: Array<Component.Component.Any>;
+    }
+  | {
+      readonly _tag: "INSERT_RESOURCE";
+      readonly resource: Resource.Resource.Any;
+    }
+  | {
+      readonly _tag: "REMOVE_RESOURCE";
+      readonly resource: Resource.Resource.Any;
+    }
+  | { readonly _tag: "REGISTER_SYSTEM"; readonly system: System.System.Any }
+  | { readonly _tag: "UNREGISTER_SYSTEM"; readonly system: System.System.Any };
 
 export const spawnEmpty = (): Command => {
-  return make("SPAWN");
+  return { _tag: "SPAWN", components: [] };
 };
 
 export const spawn = <T extends Component.Component.Any>(
   ...components: NonEmptyArray<NoInfer<T>>
 ): Command => {
-  return make("SPAWN");
+  return { _tag: "SPAWN", components };
 };
 
 export const spawnBatch = <T extends Component.Component.Any>(
   ...components: NonEmptyArray<NoInfer<T>>
 ): Command => {
-  return make("SPAWN_BATCH");
+  return { _tag: "SPAWN_BATCH", components };
 };
 
-export const insertResource = <T extends Resource.Resource>(
+export const insertResource = <T extends Resource.Resource.Any>(
   ...resources: NonEmptyArray<NoInfer<T>>
-): Command => {
-  return make("INSERT_RESOURCE");
+): NonEmptyArray<Command> => {
+  return resources.map((resource) => ({
+    _tag: "INSERT_RESOURCE",
+    resource,
+  })) as unknown as NonEmptyArray<Command>;
 };
 
-export const removeResource = <T extends Resource.Resource>(
+export const removeResource = <T extends Resource.Resource.Any>(
   ...resources: NonEmptyArray<NoInfer<T>>
-): Command => {
-  return make("REMOVE_RESOURCE");
+): NonEmptyArray<Command> => {
+  return resources.map((resource) => ({
+    _tag: "REMOVE_RESOURCE",
+    resource,
+  })) as unknown as NonEmptyArray<Command>;
 };
 
 export const registerSystem = <T extends System.System.Any>(
   ...systems: NonEmptyArray<NoInfer<T>>
-): Command => {
-  return make("REGISTER_SYSTEM");
+): NonEmptyArray<Command> => {
+  return systems.map((system) => ({
+    _tag: "REGISTER_SYSTEM",
+    system,
+  })) as unknown as NonEmptyArray<Command>;
 };
 
 export const unregisterSystem = <T extends System.System.Any>(
   ...systems: NonEmptyArray<NoInfer<T>>
-): Command => {
-  return make("UNREGISTER_SYSTEM");
-};
-
-/** @internal */
-export const make = (op: Command["_op"]): Command => {
-  return {
-    [CommandTypeId]: CommandTypeId,
-    _op: op,
-  };
+): NonEmptyArray<Command> => {
+  return systems.map((system) => ({
+    _tag: "UNREGISTER_SYSTEM",
+    system,
+  })) as unknown as NonEmptyArray<Command>;
 };

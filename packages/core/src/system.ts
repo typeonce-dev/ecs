@@ -19,6 +19,7 @@ export namespace System {
 }
 
 interface SystemParams {
+  deltaTime: number;
   queue: <T extends Command.Command>(
     ...commands: NonEmptyArray<NoInfer<T>>
   ) => void;

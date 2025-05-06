@@ -1,5 +1,6 @@
 import * as Entity from "./entity.js";
 import * as Pipeable from "./pipeable.js";
+import * as Resource from "./resource.js";
 import * as System from "./system.js";
 
 export const AppTypeId = Symbol.for("ecs/App");
@@ -9,16 +10,29 @@ export type AppTypeId = typeof AppTypeId;
 export interface App extends Pipeable.Pipeable {
   readonly [AppTypeId]: AppTypeId;
 
-  readonly entities: Set<Entity.EntityId>;
-  readonly systems: Map<System.SystemType, System.System.Any>;
+  // `string` identifier
+  readonly resources: ReadonlyMap<string, Resource.Resource>;
+  readonly systems: ReadonlyMap<System.SystemType, System.System.Any[]>;
 }
 
-export const empty = (): App => {
+const make = ({
+  systems,
+  resources,
+}: {
+  systems: ReadonlyMap<System.SystemType, System.System.Any[]>;
+  resources: ReadonlyMap<string, Resource.Resource>;
+}): App => {
   const app = Object.create(Pipeable.PipeablePrototype) as any;
-  app.entities = new Set();
-  app.systems = new Map();
+  app.systems = systems;
+  app.resources = resources;
   return app;
 };
+
+export const empty = () =>
+  make({
+    systems: new Map(),
+    resources: new Map(),
+  });
 
 export const addSystem =
   <Tag extends string>(
@@ -26,18 +40,33 @@ export const addSystem =
     system: System.System<Tag>
   ) =>
   (app: App): App => {
-    return app;
+    // TODO: `HashMap`?
+    const newMap = new Map(app.systems);
+    newMap.set(systemType, [...(newMap.get(systemType) ?? []), system]);
+    return make({ systems: newMap, resources: app.resources });
   };
 
-export const run = (app: App) => {
-  const systems = Array.from(app.systems.values());
-  for (const system of systems) {
+export const addResource =
+  <Tag extends string>(tag: Tag, resource: Resource.Resource) =>
+  (app: App): App => {
+    // TODO: `HashMap`?
+    const newMap = new Map(app.resources);
+    newMap.set(tag, resource);
+    return make({ systems: app.systems, resources: newMap });
+  };
+
+export const update = (app: App) => {
+  const startupSystems = app.systems.get("Startup") ?? [];
+  const entities = new Set();
+  for (const system of startupSystems) {
+    // TODO: No deltaTime on startup
     system.run({
+      deltaTime: 0,
       queue: (...commands) => {
         for (const command of commands) {
           switch (command._op) {
             case "SPAWN":
-              // TODO
+              entities.add("" as unknown as Entity.EntityId); // TODO: `EntityId`
               break;
             case "SPAWN_BATCH":
               // TODO
@@ -61,4 +90,39 @@ export const run = (app: App) => {
       },
     });
   }
+
+  return (deltaTime: number) => {
+    const updateSystems = app.systems.get("Update") ?? [];
+    for (const system of updateSystems) {
+      system.run({
+        deltaTime,
+        queue: (...commands) => {
+          for (const command of commands) {
+            switch (command._op) {
+              case "SPAWN":
+                // TODO
+                break;
+              case "SPAWN_BATCH":
+                // TODO
+                break;
+              case "INSERT_RESOURCE":
+                // TODO
+                break;
+              case "REMOVE_RESOURCE":
+                // TODO
+                break;
+              case "REGISTER_SYSTEM":
+                // TODO
+                break;
+              case "UNREGISTER_SYSTEM":
+                // TODO
+                break;
+              default:
+                const _: never = command._op;
+            }
+          }
+        },
+      });
+    }
+  };
 };

@@ -6,7 +6,7 @@ describe("App", () => {
     class Position extends Component.Component("Position")<{ x: number }> {}
     class Size extends Component.Component("Size")<{ value: number }> {}
 
-    const app = App.empty().pipe(
+    const update = App.empty().pipe(
       App.addSystem(
         "Startup",
         System.make("Setup")(({ queue }) => {
@@ -15,9 +15,10 @@ describe("App", () => {
             Command.spawn(new Position({ x: 10 }), new Size({ value: 20 }))
           );
         })
-      )
+      ),
+      App.update
     );
 
-    App.run(app);
+    update(1);
   });
 });

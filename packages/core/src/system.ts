@@ -15,8 +15,6 @@ export interface System<Tag extends string, R extends Record<string, object>> {
 export type SystemType = "Startup" | "Update" | "FixedUpdate";
 
 export namespace System {
-  export type Any = System<string, Record<string, object>>;
-
   export type AnyWithResource<R extends Record<string, object>> = System<
     string,
     R
@@ -26,6 +24,10 @@ export namespace System {
 export interface SystemParams<R extends Record<string, object>> {
   deltaTime: number;
   getResource: <Tag extends Extract<keyof R, string>>(tag: Tag) => R[Tag];
+  setResource: <Tag extends Extract<keyof R, string>>(
+    tag: Tag,
+    value: R[Tag]
+  ) => void;
   queue: <T extends Command.Command>(
     ...commands: NonEmptyArray<NoInfer<T>>
   ) => void;

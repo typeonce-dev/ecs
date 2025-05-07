@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { App, Component, System } from "../src/index";
+import { App, Component } from "../src/index";
 
 describe("App", () => {
   class Position extends Component.Component("Position")<{ x: number }> {}
@@ -7,15 +7,13 @@ describe("App", () => {
 
   it("executes startup systems", () => {
     const update = App.empty<{ Test: { n: number } }>().pipe(
-      App.setupSystem(
-        System.make("Setup", ({ queue, deltaTime }) => {
-          expect(deltaTime).toBe(0);
-          // queue(
-          //   Command.spawn(new Position({ x: 10 }), new Size({ value: 20 })),
-          //   Command.spawn(new Position({ x: 10 }), new Size({ value: 20 }))
-          // );
-        })
-      ),
+      App.startupSystem("Setup", ({ queue, deltaTime }) => {
+        expect(deltaTime).toBe(0);
+        // queue(
+        //   Command.spawn(new Position({ x: 10 }), new Size({ value: 20 })),
+        //   Command.spawn(new Position({ x: 10 }), new Size({ value: 20 }))
+        // );
+      }),
       App.update
     );
   });
@@ -49,5 +47,30 @@ describe("App", () => {
     );
 
     update(1);
+  });
+
+  it("set resource", () => {
+    const update = App.empty<{ Test: { n: number } }>().pipe(
+      App.addResource("Test", { n: 10 }),
+      App.startupSystem("Setup", ({ getResource, setResource }) => {
+        expect(getResource("Test")).toStrictEqual({ n: 10 });
+        setResource("Test", { n: 20 });
+      }),
+      App.updateSystem(
+        "Gameplay1",
+        ({ deltaTime, getResource, setResource }) => {
+          if (deltaTime === 1) {
+            expect(getResource("Test")).toStrictEqual({ n: 20 });
+            setResource("Test", { n: 30 });
+          } else {
+            expect(getResource("Test")).toStrictEqual({ n: 30 });
+          }
+        }
+      ),
+      App.update
+    );
+
+    update(1);
+    update(2);
   });
 });

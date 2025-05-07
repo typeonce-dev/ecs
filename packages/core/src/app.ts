@@ -13,15 +13,21 @@ export interface App<R extends Record<string, object>>
   extends Pipeable.Pipeable {
   readonly [AppTypeId]: AppTypeId;
 
-  readonly resources: ReadonlyMap<string, Resource.Resource.Any>;
-  readonly systems: ReadonlyMap<System.SystemType, System.System.Any[]>;
+  readonly resources: ReadonlyMap<
+    Extract<keyof R, string>,
+    Resource.Resource.Any
+  >;
+  readonly systems: ReadonlyMap<
+    System.SystemType,
+    System.System.AnyWithResource<R>[]
+  >;
 }
 
 const make = <R extends Record<string, object>>({
   systems,
   resources,
 }: {
-  systems: ReadonlyMap<System.SystemType, System.System.Any[]>;
+  systems: ReadonlyMap<System.SystemType, System.System.AnyWithResource<R>[]>;
   resources: ReadonlyMap<string, Resource.Resource.Any>;
 }): App<R> => {
   const app = Object.create(Pipeable.PipeablePrototype) as any;
@@ -52,21 +58,17 @@ const addSystem =
     return make({ systems: newMap, resources: app.resources });
   };
 
-export const setupSystem =
-  <
-    R extends Record<string, object>,
-    Systems extends System.System.AnyWithResource<R>[]
-  >(
-    ...systems: Systems
+export const startupSystem =
+  <R extends Record<string, object>, Tag extends string>(
+    tag: Tag,
+    run: (params: System.SystemParams<R>) => void
   ) =>
   (app: App<R>): App<R> => {
-    let newApp = make({
+    let newApp = make<R>({
       systems: new Map(app.systems),
       resources: new Map(app.resources),
     });
-    for (const system of systems) {
-      newApp = addSystem("Startup", system)(newApp);
-    }
+    newApp = addSystem<R, Tag>("Startup", System.make(tag, run as any))(newApp);
     return newApp;
   };
 
@@ -80,7 +82,7 @@ export const updateSystem =
       systems: new Map(app.systems),
       resources: new Map(app.resources),
     });
-    newApp = addSystem("Update", System.make(tag, run as any))(newApp);
+    newApp = addSystem<R, Tag>("Update", System.make(tag, run as any))(newApp);
     return newApp;
   };
 
@@ -135,30 +137,42 @@ const executeQueue =
 
 const extractResource =
   <R extends Record<string, object>>(
-    resources: ReadonlyMap<string, Resource.Resource.Any>
+    resources: ReadonlyMap<Extract<keyof R, string>, Resource.Resource.Any>
   ) =>
-  <Tag extends Extract<keyof R, string>>(tag: Tag) => {
-    return resources.get(tag)?.value!;
+  <Tag extends Extract<keyof R, string>>(tag: Tag): R[Tag] => {
+    return resources.get(tag)!.value as R[Tag];
+  };
+
+const updateResource =
+  <R extends Record<string, object>>(
+    resources: Map<Extract<keyof R, string>, Resource.Resource.Any>
+  ) =>
+  <Tag extends Extract<keyof R, string>>(tag: Tag, value: R[Tag]) => {
+    resources.set(tag, Resource.make(tag, value));
   };
 
 export const update = <R extends Record<string, object>>(app: App<R>) => {
   let entityId = 0;
   const entities = new Set<Entity.EntityId>();
-  const resources = new Map<string, Resource.Resource.Any>(app.resources);
+  const resources = new Map<Extract<keyof R, string>, Resource.Resource.Any>(
+    app.resources
+  );
 
   const queue = executeQueue({ entityId, entities, resources });
 
   const startupSystems = app.systems.get("Startup") ?? [];
   for (const system of startupSystems) {
-    const getResource = extractResource(resources);
-    system.run({ deltaTime: 0, queue, getResource });
+    const getResource = extractResource<R>(resources);
+    const setResource = updateResource<R>(resources);
+    system.run({ deltaTime: 0, queue, getResource, setResource });
   }
 
   return (deltaTime: number) => {
     const updateSystems = app.systems.get("Update") ?? [];
     for (const system of updateSystems) {
-      const getResource = extractResource(resources);
-      system.run({ deltaTime, queue, getResource });
+      const getResource = extractResource<R>(resources);
+      const setResource = updateResource<R>(resources);
+      system.run({ deltaTime, queue, getResource, setResource });
     }
   };
 };

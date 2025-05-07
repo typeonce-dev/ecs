@@ -22,14 +22,12 @@ describe("App", () => {
 
   it("executes update systems", () => {
     const update = App.empty<{ Test: { n: number } }>().pipe(
-      App.updateSystem(
-        System.make("Gameplay1", ({ queue, deltaTime }) => {
-          expect(deltaTime).toBe(1);
-        }),
-        System.make("Gameplay2", ({ queue, deltaTime }) => {
-          expect(deltaTime).toBe(1);
-        })
-      ),
+      App.updateSystem("Gameplay1", ({ queue, deltaTime }) => {
+        expect(deltaTime).toBe(1);
+      }),
+      App.updateSystem("Gameplay2", ({ queue, deltaTime }) => {
+        expect(deltaTime).toBe(1);
+      }),
       App.update
     );
 
@@ -43,12 +41,10 @@ describe("App", () => {
     }>().pipe(
       App.addResource("Test", { n: 10 }),
       App.addResource("Test2", { s: "test" }),
-      App.updateSystem(
-        System.make("Gameplay1", ({ queue, deltaTime, getResource }) => {
-          expect(getResource("Test").value).toStrictEqual({ n: 10 });
-          expect(getResource("Test2").value).toStrictEqual({ s: "test" });
-        })
-      ),
+      App.updateSystem("Gameplay1", ({ queue, deltaTime, getResource }) => {
+        expect(getResource("Test")).toStrictEqual({ n: 10 });
+        expect(getResource("Test2")).toStrictEqual({ s: "test" });
+      }),
       App.update
     );
 

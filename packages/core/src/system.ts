@@ -23,7 +23,7 @@ export namespace System {
   >;
 }
 
-interface SystemParams<R extends Record<string, object>> {
+export interface SystemParams<R extends Record<string, object>> {
   deltaTime: number;
   getResource: <Tag extends Extract<keyof R, string>>(tag: Tag) => R[Tag];
   queue: <T extends Command.Command>(

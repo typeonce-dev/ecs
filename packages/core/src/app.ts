@@ -13,7 +13,6 @@ export interface App<R extends Record<string, object>>
   extends Pipeable.Pipeable {
   readonly [AppTypeId]: AppTypeId;
 
-  // `string` identifier
   readonly resources: ReadonlyMap<string, Resource.Resource.Any>;
   readonly systems: ReadonlyMap<System.SystemType, System.System.Any[]>;
 }
@@ -72,20 +71,16 @@ export const setupSystem =
   };
 
 export const updateSystem =
-  <
-    R extends Record<string, object>,
-    Systems extends System.System.AnyWithResource<R>[]
-  >(
-    ...systems: Systems
+  <R extends Record<string, object>, Tag extends string>(
+    tag: Tag,
+    run: (params: System.SystemParams<R>) => void
   ) =>
   (app: App<R>): App<R> => {
     let newApp = make({
       systems: new Map(app.systems),
       resources: new Map(app.resources),
     });
-    for (const system of systems) {
-      newApp = addSystem("Update", system)(newApp);
-    }
+    newApp = addSystem("Update", System.make(tag, run as any))(newApp);
     return newApp;
   };
 
@@ -143,7 +138,7 @@ const extractResource =
     resources: ReadonlyMap<string, Resource.Resource.Any>
   ) =>
   <Tag extends Extract<keyof R, string>>(tag: Tag) => {
-    return resources.get(tag)!;
+    return resources.get(tag)?.value!;
   };
 
 export const update = <R extends Record<string, object>>(app: App<R>) => {

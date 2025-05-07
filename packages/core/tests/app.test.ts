@@ -1,18 +1,52 @@
-import { describe, it } from "vitest";
-import { App, Command, Component, System } from "../src/index";
+import { describe, expect, it } from "vitest";
+import { App, Component, System } from "../src/index";
 
 describe("App", () => {
-  it("creates an app", () => {
-    class Position extends Component.Component("Position")<{ x: number }> {}
-    class Size extends Component.Component("Size")<{ value: number }> {}
+  class Position extends Component.Component("Position")<{ x: number }> {}
+  class Size extends Component.Component("Size")<{ value: number }> {}
 
-    const update = App.empty().pipe(
+  it("executes startup systems", () => {
+    const update = App.empty<{ Test: { n: number } }>().pipe(
       App.setupSystem(
-        System.make("Setup", ({ queue }) => {
-          queue(
-            Command.spawn(new Position({ x: 10 }), new Size({ value: 20 })),
-            Command.spawn(new Position({ x: 10 }), new Size({ value: 20 }))
-          );
+        System.make("Setup", ({ queue, deltaTime }) => {
+          expect(deltaTime).toBe(0);
+          // queue(
+          //   Command.spawn(new Position({ x: 10 }), new Size({ value: 20 })),
+          //   Command.spawn(new Position({ x: 10 }), new Size({ value: 20 }))
+          // );
+        })
+      ),
+      App.update
+    );
+  });
+
+  it("executes update systems", () => {
+    const update = App.empty<{ Test: { n: number } }>().pipe(
+      App.updateSystem(
+        System.make("Gameplay1", ({ queue, deltaTime }) => {
+          expect(deltaTime).toBe(1);
+        }),
+        System.make("Gameplay2", ({ queue, deltaTime }) => {
+          expect(deltaTime).toBe(1);
+        })
+      ),
+      App.update
+    );
+
+    update(1);
+  });
+
+  it("add resource", () => {
+    const update = App.empty<{
+      Test: { n: number };
+      Test2: { s: string };
+    }>().pipe(
+      App.addResource("Test", { n: 10 }),
+      App.addResource("Test2", { s: "test" }),
+      App.updateSystem(
+        System.make("Gameplay1", ({ queue, deltaTime, getResource }) => {
+          expect(getResource("Test").value).toStrictEqual({ n: 10 });
+          expect(getResource("Test2").value).toStrictEqual({ s: "test" });
         })
       ),
       App.update

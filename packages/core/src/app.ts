@@ -9,7 +9,8 @@ export const AppTypeId = Symbol.for("ecs/App");
 
 export type AppTypeId = typeof AppTypeId;
 
-export interface App extends Pipeable.Pipeable {
+export interface App<R extends Record<string, object>>
+  extends Pipeable.Pipeable {
   readonly [AppTypeId]: AppTypeId;
 
   // `string` identifier
@@ -17,46 +18,83 @@ export interface App extends Pipeable.Pipeable {
   readonly systems: ReadonlyMap<System.SystemType, System.System.Any[]>;
 }
 
-const make = ({
+const make = <R extends Record<string, object>>({
   systems,
   resources,
 }: {
   systems: ReadonlyMap<System.SystemType, System.System.Any[]>;
   resources: ReadonlyMap<string, Resource.Resource.Any>;
-}): App => {
+}): App<R> => {
   const app = Object.create(Pipeable.PipeablePrototype) as any;
   app.systems = systems;
   app.resources = resources;
   return app;
 };
 
-export const empty = () =>
-  make({
-    systems: new Map(),
-    resources: new Map(),
-  });
+type IsNever<T> = [T] extends [never] ? true : false;
+
+export const empty = <
+  R extends Record<string, object> = never
+>(): IsNever<R> extends false ? App<R> : never =>
+  make({ systems: new Map(), resources: new Map() }) as any;
 
 const addSystem =
-  <Tag extends string>(
+  <R extends Record<string, object>, Tag extends string>(
     systemType: System.SystemType,
-    system: System.System<Tag>
+    system: System.System<Tag, R>
   ) =>
-  (app: App): App => {
+  (app: App<R>): App<R> => {
     // TODO: `HashMap`?
     const newMap = new Map(app.systems);
-    newMap.set(systemType, [...(newMap.get(systemType) ?? []), system]);
+    newMap.set(systemType, [
+      ...((newMap.get(systemType) ?? []) as any),
+      system,
+    ]);
     return make({ systems: newMap, resources: app.resources });
   };
 
-export const setupSystem = <Tag extends string>(system: System.System<Tag>) =>
-  addSystem("Startup", system);
+export const setupSystem =
+  <
+    R extends Record<string, object>,
+    Systems extends System.System.AnyWithResource<R>[]
+  >(
+    ...systems: Systems
+  ) =>
+  (app: App<R>): App<R> => {
+    let newApp = make({
+      systems: new Map(app.systems),
+      resources: new Map(app.resources),
+    });
+    for (const system of systems) {
+      newApp = addSystem("Startup", system)(newApp);
+    }
+    return newApp;
+  };
 
-export const updateSystem = <Tag extends string>(system: System.System<Tag>) =>
-  addSystem("Update", system);
+export const updateSystem =
+  <
+    R extends Record<string, object>,
+    Systems extends System.System.AnyWithResource<R>[]
+  >(
+    ...systems: Systems
+  ) =>
+  (app: App<R>): App<R> => {
+    let newApp = make({
+      systems: new Map(app.systems),
+      resources: new Map(app.resources),
+    });
+    for (const system of systems) {
+      newApp = addSystem("Update", system)(newApp);
+    }
+    return newApp;
+  };
 
 export const addResource =
-  <Tag extends string, Value extends object>(tag: Tag, value: Value) =>
-  (app: App): App => {
+  <R extends Record<string, object>, Tag extends Extract<keyof R, string>>(
+    tag: Tag,
+    value: R[Tag]
+  ) =>
+  (app: App<R>): App<R> => {
     // TODO: `HashMap`?
     const newMap = new Map(app.resources);
     newMap.set(tag, Resource.make(tag, value));
@@ -100,7 +138,15 @@ const executeQueue =
     }
   };
 
-export const update = (app: App) => {
+const extractResource =
+  <R extends Record<string, object>>(
+    resources: ReadonlyMap<string, Resource.Resource.Any>
+  ) =>
+  <Tag extends Extract<keyof R, string>>(tag: Tag) => {
+    return resources.get(tag)!;
+  };
+
+export const update = <R extends Record<string, object>>(app: App<R>) => {
   let entityId = 0;
   const entities = new Set<Entity.EntityId>();
   const resources = new Map<string, Resource.Resource.Any>(app.resources);
@@ -109,14 +155,15 @@ export const update = (app: App) => {
 
   const startupSystems = app.systems.get("Startup") ?? [];
   for (const system of startupSystems) {
-    // TODO: No deltaTime on startup
-    system.run({ deltaTime: 0, queue });
+    const getResource = extractResource(resources);
+    system.run({ deltaTime: 0, queue, getResource });
   }
 
   return (deltaTime: number) => {
     const updateSystems = app.systems.get("Update") ?? [];
     for (const system of updateSystems) {
-      system.run({ deltaTime, queue });
+      const getResource = extractResource(resources);
+      system.run({ deltaTime, queue, getResource });
     }
   };
 };

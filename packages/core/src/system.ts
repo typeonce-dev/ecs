@@ -5,30 +5,36 @@ export const SystemTypeId = Symbol.for("ecs/System");
 
 export type SystemTypeId = typeof SystemTypeId;
 
-export interface System<Tag extends string> {
+export interface System<Tag extends string, R extends Record<string, object>> {
   readonly [SystemTypeId]: SystemTypeId;
   readonly _tag: Tag;
   readonly commands: Command.Command[];
-  readonly run: (params: SystemParams) => void;
+  readonly run: (params: SystemParams<R>) => void;
 }
 
 export type SystemType = "Startup" | "Update" | "FixedUpdate";
 
 export namespace System {
-  export type Any = System<string>;
+  export type Any = System<string, Record<string, object>>;
+
+  export type AnyWithResource<R extends Record<string, object>> = System<
+    string,
+    R
+  >;
 }
 
-interface SystemParams {
+interface SystemParams<R extends Record<string, object>> {
   deltaTime: number;
+  getResource: <Tag extends Extract<keyof R, string>>(tag: Tag) => R[Tag];
   queue: <T extends Command.Command>(
     ...commands: NonEmptyArray<NoInfer<T>>
   ) => void;
 }
 
-export const make = <Tag extends string>(
+export const make = <Tag extends string, R extends Record<string, object>>(
   tag: Tag,
-  run: (params: SystemParams) => void
-): System<Tag> => {
+  run: (params: SystemParams<R>) => void
+): System<Tag, R> => {
   return {
     [SystemTypeId]: SystemTypeId,
     _tag: tag,
